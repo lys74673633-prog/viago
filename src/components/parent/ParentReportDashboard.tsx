@@ -12,6 +12,7 @@ import {
   Target,
   University,
 } from "lucide-react";
+import { PaywallModal } from "@/components/billing/PaywallModal";
 import { ExportButtons } from "@/components/export/ExportButtons";
 import { GradeGapChart } from "@/components/parent/GradeGapChart";
 import { GradeScaleGuide } from "@/components/parent/GradeScaleGuide";
@@ -29,6 +30,7 @@ const inputClass =
 export function ParentReportDashboard() {
   const { canParentReport, spendParentReport, entitlements } = useBilling();
   const [loading, setLoading] = useState(false);
+  const [paywall, setPaywall] = useState(false);
 
   const [studentName, setStudentName] = useState("");
   const [grade, setGrade] = useState("고2");
@@ -102,11 +104,18 @@ export function ParentReportDashboard() {
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    // MVP: 진단 리포트 콘텐츠 체험은 열어 두고, 프리미엄/횟수가 있으면 차감합니다.
+    if (!canParentReport) {
+      setPaywall(true);
+      return;
+    }
+
     setLoading(true);
     window.setTimeout(() => {
-      if (canParentReport) {
-        spendParentReport();
+      const ok = spendParentReport();
+      if (!ok) {
+        setPaywall(true);
+        setLoading(false);
+        return;
       }
       setReport(
         buildParentReport({
@@ -348,6 +357,11 @@ export function ParentReportDashboard() {
       )}
 
       <GradeScaleGuide open={guideOpen} onClose={() => setGuideOpen(null)} />
+      <PaywallModal
+        open={paywall}
+        reason="parent_report"
+        onClose={() => setPaywall(false)}
+      />
     </>
   );
 }

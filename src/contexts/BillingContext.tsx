@@ -52,6 +52,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
+    // DEV 강제해제가 꺼진 뒤에도 예전 프리미엄 쿠키가 남지 않도록 동기화
     refresh();
     setReady(true);
     const onStorage = (e: StorageEvent) => {

@@ -4,17 +4,12 @@ import { syncPremiumCookie } from "@/lib/billing/premium-cookie";
 export const ENTITLEMENTS_KEY = "viago:entitlements:v1";
 
 /**
- * 개발용 프리미엄 해제 스위치.
- * - next dev 기본값: 열림 (개발자가 프리미엄 플로우 바로 확인)
- * - 강제 OFF: NEXT_PUBLIC_DEV_UNLOCK_PREMIUM=false
- * - 강제 ON:  NEXT_PUBLIC_DEV_UNLOCK_PREMIUM=true
- * 프로덕션 빌드에서는 기본 잠김.
+ * 개발용 프리미엄 강제 해제.
+ * 기본값: OFF — 결제(또는 목업 결제 완료) 후에만 프리미엄.
+ * 로컬에서만 필요하면 NEXT_PUBLIC_DEV_UNLOCK_PREMIUM=true
  */
 export function isDevPremiumUnlocked(): boolean {
-  const flag = process.env.NEXT_PUBLIC_DEV_UNLOCK_PREMIUM;
-  if (flag === "false") return false;
-  if (flag === "true") return true;
-  return process.env.NODE_ENV === "development";
+  return process.env.NEXT_PUBLIC_DEV_UNLOCK_PREMIUM === "true";
 }
 
 export function applyDevPremiumUnlock(e: Entitlements): Entitlements {

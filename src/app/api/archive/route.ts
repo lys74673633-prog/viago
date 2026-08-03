@@ -3,12 +3,14 @@ import {
   archiveFacetSuggestions,
   searchArchiveSeeds,
 } from "@/data/archive-cases";
+import { readPremiumCookie } from "@/lib/billing/premium-cookie";
 import type { ArchiveCaseListItem } from "@/types/archive";
 
 function mapSeedItems(
   university: string,
   major: string,
   q: string,
+  isPremium: boolean,
 ): ArchiveCaseListItem[] {
   return searchArchiveSeeds({ university, major, q, limit: 80 }).map((row) => ({
     id: row.id,
@@ -20,30 +22,31 @@ function mapSeedItems(
     title: row.title,
     preview: row.preview,
     tags: row.tags,
-    fullText: row.fullText,
-    performanceText: row.performanceText,
-    locked: false,
+    fullText: isPremium ? row.fullText : null,
+    performanceText: isPremium ? row.performanceText : null,
+    locked: !isPremium,
   }));
 }
 
 /**
  * GET /api/archive?university=&major=&q=
- * 학교·학과 입력을 반영해 관련 사례를 많이 반환합니다.
+ * 전문은 프리미엄(결제 후 쿠키)일 때만 반환.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
   const university = (searchParams.get("university") ?? "").trim();
   const major = (searchParams.get("major") ?? "").trim();
+  const isPremium = readPremiumCookie(request.headers.get("cookie"));
 
-  const items = mapSeedItems(university, major, q);
+  const items = mapSeedItems(university, major, q, isPremium);
   const facets = archiveFacetSuggestions();
 
   return NextResponse.json({
     items,
     meta: {
       count: items.length,
-      premiumUnlocked: true,
+      premiumUnlocked: isPremium,
       authenticated: false,
       source: "seed",
       query: { university, major, q },

@@ -1,10 +1,20 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { Crown, Loader2, Search, University, GraduationCap } from "lucide-react";
+import {
+  Crown,
+  GraduationCap,
+  Loader2,
+  Lock,
+  Search,
+  University,
+} from "lucide-react";
+import { PaywallModal } from "@/components/billing/PaywallModal";
+import { useBilling } from "@/contexts/BillingContext";
 import type { ArchiveCaseListItem } from "@/types/archive";
 
 export function ArchiveBrowser() {
+  const { canArchive, entitlements } = useBilling();
   const [university, setUniversity] = useState("");
   const [major, setMajor] = useState("");
   const [query, setQuery] = useState("");
@@ -15,6 +25,7 @@ export function ArchiveBrowser() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [paywall, setPaywall] = useState(false);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -57,7 +68,7 @@ export function ArchiveBrowser() {
 
   useEffect(() => {
     void load();
-  }, [load]);
+  }, [load, canArchive]);
 
   const filtered = Boolean(debounced.university || debounced.major || debounced.q);
 
@@ -73,10 +84,30 @@ export function ArchiveBrowser() {
             선배 합격자 생기부 벤치마킹
           </h1>
           <p className="mt-2 text-sm text-ink-soft">
-            원하는 학교·학과를 입력하면 관련 합격 사례·활동 자료를 많이 보여 줍니다.
+            원하는 학교·학과를 입력하면 관련 사례를 보여 줍니다. 세특·수행 원문은 프리미엄
+            결제 후 열립니다.
           </p>
         </div>
+        {!entitlements.isPremium && (
+          <button
+            type="button"
+            onClick={() => setPaywall(true)}
+            className="rounded-xl bg-[#1E293B] px-4 py-2.5 text-sm font-semibold text-white"
+          >
+            프리미엄으로 잠금 해제
+          </button>
+        )}
       </div>
+
+      {!canArchive && (
+        <div className="mt-6 flex items-start gap-3 rounded-2xl border border-[#10B981]/25 bg-[#10B981]/10 px-4 py-3 text-sm text-[#065f46]">
+          <Lock className="mt-0.5 size-4 shrink-0" />
+          <p>
+            무료는 제목·미리보기만 볼 수 있습니다. 전문은{" "}
+            <strong>요금제에서 결제</strong>한 프리미엄 회원만 이용할 수 있습니다.
+          </p>
+        </div>
+      )}
 
       <div className="mt-8 space-y-3 rounded-2xl bg-white/80 p-4 ring-1 ring-line md:p-5">
         <div className="grid gap-3 sm:grid-cols-2">
@@ -158,7 +189,8 @@ export function ArchiveBrowser() {
 
       <ul className="mt-6 space-y-4">
         {items.map((sample) => {
-          const expanded = openId === sample.id;
+          const locked = sample.locked || !canArchive;
+          const expanded = openId === sample.id && !locked;
           const body = expanded
             ? [sample.fullText, sample.performanceText].filter(Boolean).join("\n\n")
             : sample.preview;
@@ -171,7 +203,13 @@ export function ArchiveBrowser() {
               <button
                 type="button"
                 className="w-full p-5 text-left"
-                onClick={() => setOpenId((id) => (id === sample.id ? null : sample.id))}
+                onClick={() => {
+                  if (locked) {
+                    setPaywall(true);
+                    return;
+                  }
+                  setOpenId((id) => (id === sample.id ? null : sample.id));
+                }}
               >
                 <div className="flex flex-wrap items-center gap-2 text-xs font-semibold text-teal-deep">
                   <span>{sample.university}</span>
@@ -179,22 +217,45 @@ export function ArchiveBrowser() {
                   <span>{sample.major}</span>
                   <span className="text-ink/20">·</span>
                   <span>{sample.admissionYear}</span>
+                  {locked && (
+                    <span className="ml-auto inline-flex items-center gap-1 rounded-md bg-ink/5 px-2 py-0.5 text-[11px] text-ink-soft">
+                      <Lock className="size-3" />
+                      Premium
+                    </span>
+                  )}
                 </div>
                 <h2 className="mt-2 text-base font-semibold text-[#1E293B]">{sample.title}</h2>
                 <p className="mt-1 text-xs text-ink-soft">
                   {sample.subject} · {sample.tags.join(" · ")}
                 </p>
-                <p className="mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft">
+                <p
+                  className={`mt-3 whitespace-pre-wrap text-sm leading-relaxed text-ink-soft ${
+                    locked ? "select-none blur-[2.5px]" : ""
+                  }`}
+                >
                   {body}
                 </p>
-                <p className="mt-3 text-xs text-teal-deep">
-                  {expanded ? "접기" : "세특·수행평가 원문 펼치기"}
-                </p>
+                {locked ? (
+                  <p className="mt-3 text-xs font-semibold text-[#059669]">
+                    프리미엄 전용 — 탭하여 결제·잠금 해제
+                  </p>
+                ) : (
+                  <p className="mt-3 text-xs text-teal-deep">
+                    {expanded ? "접기" : "세특·수행평가 원문 펼치기"}
+                  </p>
+                )}
               </button>
             </li>
           );
         })}
       </ul>
+
+      <PaywallModal
+        open={paywall}
+        reason="archive"
+        onClose={() => setPaywall(false)}
+        onPurchased={() => void load()}
+      />
     </>
   );
 }

@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { AuthNav } from "@/components/auth/AuthNav";
+import { BillingStatusChip } from "@/components/billing/BillingStatusChip";
 import { Logo } from "@/components/Logo";
 
 const navLinkClass =
@@ -32,6 +33,7 @@ export function Header() {
             요금제
           </Link>
 
+          <BillingStatusChip />
           <AuthNav />
 
           <Link
