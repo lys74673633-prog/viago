@@ -5,7 +5,8 @@ import { readPremiumCookie } from "@/lib/billing/premium-cookie";
 import { createClient } from "@/lib/supabase/server";
 import type { ArchiveCaseListItem } from "@/types/archive";
 
-function mapSeedItems(q: string, isPremium: boolean): ArchiveCaseListItem[] {
+function mapSeedItems(q: string, _isPremium: boolean): ArchiveCaseListItem[] {
+  // MVP: 시드 사례는 전원 열람 가능 (Supabase 프리미엄 연동 전)
   return searchArchiveSeeds(q).map((row) => ({
     id: row.id,
     slug: row.slug,
@@ -16,9 +17,9 @@ function mapSeedItems(q: string, isPremium: boolean): ArchiveCaseListItem[] {
     title: row.title,
     preview: row.preview,
     tags: row.tags,
-    fullText: isPremium ? row.fullText : null,
-    performanceText: isPremium ? row.performanceText : null,
-    locked: !isPremium,
+    fullText: row.fullText,
+    performanceText: row.performanceText,
+    locked: false,
   }));
 }
 

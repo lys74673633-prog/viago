@@ -23,10 +23,11 @@ export function AuthForm({ mode }: AuthFormProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diagHint, setDiagHint] = useState<string | null>(null);
-  const [usingLocal, setUsingLocal] = useState(authMode === "local");
+  // Supabase 미구성/실패 시 처음부터 로컬 계정 UI를 보여 혼선을 줄입니다.
+  const [usingLocal, setUsingLocal] = useState(true);
 
   useEffect(() => {
-    setUsingLocal(authMode === "local");
+    setUsingLocal(authMode !== "supabase");
   }, [authMode]);
 
   useEffect(() => {
