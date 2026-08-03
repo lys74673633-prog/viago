@@ -1,0 +1,120 @@
+@import "tailwindcss";
+
+:root {
+  --ink: #0b2434;
+  --ink-soft: #1a3a4d;
+  --teal: #0f766e;
+  --teal-deep: #0a5c56;
+  --mint: #d8f3ee;
+  --ice: #e8f4f8;
+  --fog: #f3faf8;
+  --citrus: #d4f05a;
+  --coral: #ff6b4a;
+  --line: rgb(11 36 52 / 0.12);
+  --background: var(--fog);
+  --foreground: var(--ink);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-teal: var(--teal);
+  --color-teal-deep: var(--teal-deep);
+  --color-mint: var(--mint);
+  --color-ice: var(--ice);
+  --color-fog: var(--fog);
+  --color-citrus: var(--citrus);
+  --color-coral: var(--coral);
+  --color-line: var(--line);
+  --font-sans: var(--font-noto);
+  --font-display: var(--font-syne);
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(18px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes drift {
+  0%,
+  100% {
+    transform: translate3d(0, 0, 0) scale(1);
+  }
+  50% {
+    transform: translate3d(2%, -1.5%, 0) scale(1.03);
+  }
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 100% 50%;
+  }
+}
+
+@keyframes pulse-soft {
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 0.9;
+  }
+}
+
+.animate-rise {
+  animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.animate-rise-delay-1 {
+  animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.12s both;
+}
+
+.animate-rise-delay-2 {
+  animation: rise 0.8s cubic-bezier(0.22, 1, 0.36, 1) 0.24s both;
+}
+
+.animate-drift {
+  animation: drift 14s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background-size: 200% 200%;
+  animation: shimmer 8s ease infinite alternate;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-rise,
+  .animate-rise-delay-1,
+  .animate-rise-delay-2,
+  .animate-drift,
+  .animate-shimmer,
+  .animate-pulse-soft {
+    animation: none;
+  }
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-noto), "Apple SD Gothic Neo", sans-serif;
+}
+
+::selection {
+  background: color-mix(in oklab, var(--citrus) 70%, white);
+  color: var(--ink);
+}
