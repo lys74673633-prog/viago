@@ -3,7 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { PerformanceGenerator } from "@/components/performance/PerformanceGenerator";
 
 export const metadata = {
-  title: "수행평가 올인원 AI | StudyPilot AI",
+  title: "수행평가 올인원 AI | Viago",
   description:
     "교과 단원과 키워드로 추천 주제, 보고서 초안, 3분 발표 대본, APA 참고문헌까지 생성합니다.",
 };

@@ -3,7 +3,7 @@ import { Footer } from "@/components/layout/Footer";
 import { SetukGenerator } from "@/components/setuk/SetukForm";
 
 export const metadata = {
-  title: "세특 AI 생성기 | StudyPilot AI",
+  title: "세특 AI 생성기 | Viago",
   description: "과목·키워드·역할을 입력해 학업·진로·공동체 역량 세특 문장을 생성하세요.",
 };
 

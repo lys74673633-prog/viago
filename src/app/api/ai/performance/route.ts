@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiClientError, generateJson, getAiProvider } from "@/lib/ai/client";
+import { buildDemoExpand, buildDemoTopics } from "@/lib/ai/demo-performance";
 import {
   buildPerformanceExpandPrompt,
   buildPerformanceTopicsPrompt,
@@ -50,23 +51,32 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!getAiProvider()) {
-    return NextResponse.json(
-      {
-        error: "AI_NOT_CONFIGURED",
-        message:
-          "OPENAI_API_KEY 또는 GEMINI_API_KEY가 없습니다. .env.local에 키를 넣고 서버를 재시작하세요.",
-      },
-      { status: 503 },
-    );
-  }
-
   const quota = await consumeQuota();
   if (!quota.ok) {
     return NextResponse.json(quotaExceededResponse(quota), { status: 402 });
   }
 
   const input: PerformanceTopicInput = { unit, keywords };
+  const provider = getAiProvider();
+
+  if (!provider) {
+    if (action === "topics") {
+      return NextResponse.json({
+        action,
+        topics: buildDemoTopics(input),
+        remaining: quota.remaining,
+        limit: quota.limit,
+        provider: "demo",
+      });
+    }
+    return NextResponse.json({
+      action,
+      result: buildDemoExpand(input, selectedTopic),
+      remaining: quota.remaining,
+      limit: quota.limit,
+      provider: "demo",
+    });
+  }
 
   try {
     if (action === "topics") {
@@ -76,7 +86,7 @@ export async function POST(request: Request) {
         topics,
         remaining: quota.remaining,
         limit: quota.limit,
-        provider: getAiProvider(),
+        provider,
       });
     }
 
@@ -86,15 +96,33 @@ export async function POST(request: Request) {
       result,
       remaining: quota.remaining,
       limit: quota.limit,
-      provider: getAiProvider(),
+      provider,
     });
   } catch (err) {
-    const message =
-      err instanceof AiClientError ? err.message : "수행평가 생성 중 오류가 발생했습니다.";
-    return NextResponse.json(
-      { error: message, remaining: quota.remaining, limit: quota.limit },
-      { status: err instanceof AiClientError ? err.status : 500 },
-    );
+    if (action === "topics") {
+      return NextResponse.json({
+        action,
+        topics: buildDemoTopics(input),
+        remaining: quota.remaining,
+        limit: quota.limit,
+        provider: "demo",
+        warning:
+          err instanceof AiClientError
+            ? err.message
+            : "AI 호출 실패로 데모 주제를 반환했습니다.",
+      });
+    }
+    return NextResponse.json({
+      action,
+      result: buildDemoExpand(input, selectedTopic),
+      remaining: quota.remaining,
+      limit: quota.limit,
+      provider: "demo",
+      warning:
+        err instanceof AiClientError
+          ? err.message
+          : "AI 호출 실패로 데모 보고서를 반환했습니다.",
+    });
   }
 }
 

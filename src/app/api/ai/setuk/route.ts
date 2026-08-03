@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { AiClientError, generateJson, getAiProvider } from "@/lib/ai/client";
+import { buildDemoSetukVersions } from "@/lib/ai/demo-setuk";
 import { buildSetukPrompt } from "@/lib/ai/prompts";
 import { consumeQuota, quotaExceededResponse } from "@/lib/usage/quota";
 import type { SetukInput, SetukVersion } from "@/types";
@@ -28,20 +29,19 @@ export async function POST(request: Request) {
     );
   }
 
-  if (!getAiProvider()) {
-    return NextResponse.json(
-      {
-        error: "AI_NOT_CONFIGURED",
-        message:
-          "OPENAI_API_KEY 또는 GEMINI_API_KEY가 없습니다. .env.local에 키를 넣고 서버를 재시작하세요.",
-      },
-      { status: 503 },
-    );
-  }
-
   const quota = await consumeQuota();
   if (!quota.ok) {
     return NextResponse.json(quotaExceededResponse(quota), { status: 402 });
+  }
+
+  const provider = getAiProvider();
+  if (!provider) {
+    return NextResponse.json({
+      versions: buildDemoSetukVersions(input),
+      remaining: quota.remaining,
+      limit: quota.limit,
+      provider: "demo",
+    });
   }
 
   try {
@@ -50,15 +50,21 @@ export async function POST(request: Request) {
       versions,
       remaining: quota.remaining,
       limit: quota.limit,
-      provider: getAiProvider(),
+      provider,
     });
   } catch (err) {
-    const message =
-      err instanceof AiClientError ? err.message : "세특 생성 중 오류가 발생했습니다.";
-    return NextResponse.json(
-      { error: message, remaining: quota.remaining, limit: quota.limit },
-      { status: err instanceof AiClientError ? err.status : 500 },
-    );
+    // 상용 키가 깨져도 세특 페이지가 죽지 않도록 데모로 폴백
+    const versions = buildDemoSetukVersions(input);
+    return NextResponse.json({
+      versions,
+      remaining: quota.remaining,
+      limit: quota.limit,
+      provider: "demo",
+      warning:
+        err instanceof AiClientError
+          ? err.message
+          : "AI 호출에 실패해 데모 문장을 반환했습니다.",
+    });
   }
 }
 
