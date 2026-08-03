@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { ExternalLink, Loader2 } from "lucide-react";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
+import { useAuth } from "@/contexts/AuthContext";
+import { localSignIn, localSignUp } from "@/lib/auth/local";
 import { createClient } from "@/lib/supabase/client";
 
 interface AuthFormProps {
@@ -14,12 +16,18 @@ interface AuthFormProps {
 export function AuthForm({ mode }: AuthFormProps) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { mode: authMode, refresh } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [diagHint, setDiagHint] = useState<string | null>(null);
+  const [usingLocal, setUsingLocal] = useState(authMode === "local");
+
+  useEffect(() => {
+    setUsingLocal(authMode === "local");
+  }, [authMode]);
 
   useEffect(() => {
     const qErr = searchParams.get("error");
@@ -37,9 +45,34 @@ export function AuthForm({ mode }: AuthFormProps) {
       setDiagHint(null);
       return data;
     } catch {
-      setDiagHint("진단 API에 연결하지 못했습니다. 개발 서버가 실행 중인지 확인하세요.");
-      return null;
+      setDiagHint("진단 API에 연결하지 못했습니다.");
+      return { ok: false };
     }
+  }
+
+  async function finishLocalAuth() {
+    await refresh();
+    router.push("/setuk");
+    router.refresh();
+  }
+
+  async function handleLocalAuth() {
+    const result =
+      mode === "signup"
+        ? await localSignUp(email, password)
+        : await localSignIn(email, password);
+
+    if ("error" in result) {
+      setError(result.error);
+      return;
+    }
+
+    setMessage(
+      mode === "signup"
+        ? "가입이 완료되었습니다. (이 브라우저에 계정이 저장됩니다)"
+        : null,
+    );
+    await finishLocalAuth();
   }
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
@@ -47,19 +80,27 @@ export function AuthForm({ mode }: AuthFormProps) {
     setError(null);
     setMessage(null);
     setDiagHint(null);
-
-    const supabase = createClient();
-    if (!supabase) {
-      setError("ENV_MISSING");
-      return;
-    }
-
     setLoading(true);
+
     try {
-      // 사전 연결 진단 (Failed to fetch 예방/원인 표시)
+      if (usingLocal || authMode === "local") {
+        await handleLocalAuth();
+        return;
+      }
+
+      const supabase = createClient();
+      if (!supabase) {
+        setUsingLocal(true);
+        await handleLocalAuth();
+        return;
+      }
+
       const diag = await runDiagnose();
       if (diag && diag.ok === false) {
-        setError(diag.message ?? "Supabase 연결에 실패했습니다.");
+        // 잘못된 Supabase URL/키여도 서비스가 되게 로컬 인증으로 전환
+        setUsingLocal(true);
+        setMessage("클라우드 Auth 연결에 실패해 로컬 계정으로 진행합니다.");
+        await handleLocalAuth();
         return;
       }
 
@@ -88,7 +129,7 @@ export function AuthForm({ mode }: AuthFormProps) {
         }
 
         setMessage(
-          "가입이 접수되었습니다. 이메일 확인이 켜져 있다면 인증 메일을 확인하세요. 로컬에서는 Supabase → Authentication → Providers → Email → Confirm email 을 OFF로 권장합니다.",
+          "가입이 접수되었습니다. 이메일 확인이 켜져 있다면 인증 메일을 확인하세요.",
         );
       } else {
         const { data, error: signInError } = await supabase.auth.signInWithPassword({
@@ -111,10 +152,13 @@ export function AuthForm({ mode }: AuthFormProps) {
         lower.includes("networkerror") ||
         lower.includes("fetch failed")
       ) {
-        await runDiagnose();
-        setError(
-          "Failed to fetch — Supabase 서버에 닿지 않습니다. 보통 Project URL 오타(DNS 실패) 또는 잘못된 API 키 때문입니다.",
-        );
+        setUsingLocal(true);
+        setMessage("Supabase에 연결되지 않아 로컬 계정으로 전환합니다.");
+        try {
+          await handleLocalAuth();
+        } catch {
+          setError("로컬 인증에도 실패했습니다. 잠시 후 다시 시도하세요.");
+        }
       } else if (lower.includes("email not confirmed")) {
         setError(
           "이메일 인증이 완료되지 않았습니다. 메일의 확인 링크를 누르거나 Confirm email을 끄세요.",
@@ -133,12 +177,21 @@ export function AuthForm({ mode }: AuthFormProps) {
 
   return (
     <div className="space-y-5">
-      <SocialLoginButtons />
+      {!usingLocal && authMode === "supabase" && <SocialLoginButtons />}
 
-      <div className="relative py-1 text-center text-xs text-ink-soft">
-        <span className="relative z-10 bg-white/80 px-2">또는 이메일</span>
-        <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-ink/10" />
-      </div>
+      {usingLocal && (
+        <p className="rounded-xl bg-[#ecfdf5] px-3.5 py-2.5 text-xs leading-relaxed text-[#065f46]">
+          로컬 계정 모드입니다. 이메일·비밀번호로 바로 가입/로그인되며, 이 브라우저에만
+          저장됩니다.
+        </p>
+      )}
+
+      {!usingLocal && authMode === "supabase" && (
+        <div className="relative py-1 text-center text-xs text-ink-soft">
+          <span className="relative z-10 bg-white/80 px-2">또는 이메일</span>
+          <span className="absolute inset-x-0 top-1/2 h-px -translate-y-1/2 bg-ink/10" />
+        </div>
+      )}
 
       <form
         onSubmit={handleSubmit}
@@ -171,25 +224,19 @@ export function AuthForm({ mode }: AuthFormProps) {
           />
         </label>
 
-        {error === "ENV_MISSING" ? (
-          <div
-            className="space-y-2 rounded-xl bg-coral/10 px-3.5 py-3 text-sm text-[#9f1239]"
-            role="alert"
-          >
-            <p className="font-semibold">Supabase 환경변수가 없습니다</p>
-            <Link href="/setup" className="font-semibold underline">
-              /setup 에서 URL·키 저장하기
-            </Link>
-          </div>
-        ) : (
-          error && (
-            <div className="space-y-2 rounded-lg bg-coral/10 px-3 py-2 text-sm text-coral" role="alert">
-              <p>{error}</p>
-              {diagHint && <p className="text-xs leading-relaxed text-[#9f1239]/90">{diagHint}</p>}
+        {error && (
+          <div className="space-y-2 rounded-lg bg-coral/10 px-3 py-2 text-sm text-coral" role="alert">
+            <p>{error}</p>
+            {diagHint && <p className="text-xs leading-relaxed text-[#9f1239]/90">{diagHint}</p>}
+            {authMode === "supabase" && !usingLocal && (
               <div className="flex flex-wrap gap-3 text-xs font-semibold">
-                <Link href="/setup" className="underline">
-                  /setup 다시 설정
-                </Link>
+                <button
+                  type="button"
+                  className="underline"
+                  onClick={() => setUsingLocal(true)}
+                >
+                  로컬 계정으로 계속
+                </button>
                 <a
                   href="/api/auth/diagnose"
                   target="_blank"
@@ -200,8 +247,8 @@ export function AuthForm({ mode }: AuthFormProps) {
                   <ExternalLink className="size-3" />
                 </a>
               </div>
-            </div>
-          )
+            )}
+          </div>
         )}
 
         {message && (

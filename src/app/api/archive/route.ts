@@ -1,28 +1,51 @@
 import { NextResponse } from "next/server";
+import { searchArchiveSeeds } from "@/data/archive-cases";
 import { isDevPremiumUnlocked } from "@/lib/billing/entitlements";
+import { readPremiumCookie } from "@/lib/billing/premium-cookie";
 import { createClient } from "@/lib/supabase/server";
 import type { ArchiveCaseListItem } from "@/types/archive";
 
+function mapSeedItems(q: string, isPremium: boolean): ArchiveCaseListItem[] {
+  return searchArchiveSeeds(q).map((row) => ({
+    id: row.id,
+    slug: row.slug,
+    university: row.university,
+    major: row.major,
+    admissionYear: row.admissionYear,
+    subject: row.subject,
+    title: row.title,
+    preview: row.preview,
+    tags: row.tags,
+    fullText: isPremium ? row.fullText : null,
+    performanceText: isPremium ? row.performanceText : null,
+    locked: !isPremium,
+  }));
+}
+
 /**
  * GET /api/archive?q=
- * - 공개: 목록 + preview
- * - 전문(fullText): 로그인 + (users.is_premium 또는 DEV unlock)
+ * - Supabase archive_cases 우선
+ * - 없거나 실패 시 내장 시드로 폴백 (프로덕션에서도 목록 보장)
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const q = (searchParams.get("q") ?? "").trim();
+  const cookiePremium = readPremiumCookie(request.headers.get("cookie"));
 
   const supabase = await createClient();
+  let isPremium = isDevPremiumUnlocked() || cookiePremium;
+
   if (!supabase) {
-    return NextResponse.json(
-      {
-        error: "SUPABASE_NOT_CONFIGURED",
-        message:
-          "Supabase 환경변수가 없습니다. .env.local에 URL/ANON KEY를 설정한 뒤 서버를 재시작하세요.",
-        items: [] as ArchiveCaseListItem[],
+    const items = mapSeedItems(q, isPremium);
+    return NextResponse.json({
+      items,
+      meta: {
+        count: items.length,
+        premiumUnlocked: isPremium,
+        authenticated: false,
+        source: "seed",
       },
-      { status: 503 },
-    );
+    });
   }
 
   let query = supabase
@@ -34,7 +57,6 @@ export async function GET(request: Request) {
     .order("sort_order", { ascending: false });
 
   if (q) {
-    // ilike 검색 (제목/대학/전공/과목)
     query = query.or(
       `title.ilike.%${q}%,university.ilike.%${q}%,major.ilike.%${q}%,subject.ilike.%${q}%`,
     );
@@ -42,35 +64,34 @@ export async function GET(request: Request) {
 
   const { data, error } = await query.limit(50);
 
-  if (error) {
-    return NextResponse.json(
-      {
-        error: "ARCHIVE_QUERY_FAILED",
-        message:
-          error.message.includes("relation") || error.code === "42P01"
-            ? "archive_cases 테이블이 없습니다. Supabase SQL 에디터에서 supabase/migrations/003_archive_cases.sql 을 실행하세요."
-            : error.message,
-        items: [] as ArchiveCaseListItem[],
+  if (error || !data?.length) {
+    const items = mapSeedItems(q, isPremium);
+    return NextResponse.json({
+      items,
+      meta: {
+        count: items.length,
+        premiumUnlocked: isPremium,
+        authenticated: false,
+        source: "seed",
+        fallbackReason: error?.message ?? "empty",
       },
-      { status: 500 },
-    );
+    });
   }
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  let isPremium = isDevPremiumUnlocked();
   if (!isPremium && user) {
     const { data: profile } = await supabase
       .from("users")
       .select("is_premium")
       .eq("id", user.id)
       .maybeSingle();
-    isPremium = Boolean(profile?.is_premium);
+    isPremium = Boolean(profile?.is_premium) || cookiePremium;
   }
 
-  const items: ArchiveCaseListItem[] = (data ?? []).map((row) => ({
+  const items: ArchiveCaseListItem[] = data.map((row) => ({
     id: row.id as string,
     slug: row.slug as string,
     university: row.university as string,
@@ -91,6 +112,7 @@ export async function GET(request: Request) {
       count: items.length,
       premiumUnlocked: isPremium,
       authenticated: Boolean(user),
+      source: "supabase",
     },
   });
 }

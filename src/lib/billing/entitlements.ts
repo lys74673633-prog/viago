@@ -1,4 +1,5 @@
 import type { ProductId } from "@/lib/billing/products";
+import { syncPremiumCookie } from "@/lib/billing/premium-cookie";
 
 export const ENTITLEMENTS_KEY = "viago:entitlements:v1";
 
@@ -75,15 +76,20 @@ export function readEntitlementsClient(): Entitlements {
     const base = raw
       ? normalizeEntitlements(JSON.parse(raw) as Partial<Entitlements>)
       : DEFAULT_ENTITLEMENTS;
-    return applyDevPremiumUnlock(base);
+    const unlocked = applyDevPremiumUnlock(base);
+    syncPremiumCookie(unlocked.isPremium);
+    return unlocked;
   } catch {
-    return applyDevPremiumUnlock(DEFAULT_ENTITLEMENTS);
+    const unlocked = applyDevPremiumUnlock(DEFAULT_ENTITLEMENTS);
+    syncPremiumCookie(unlocked.isPremium);
+    return unlocked;
   }
 }
 
 export function writeEntitlementsClient(next: Entitlements) {
   if (typeof window === "undefined") return;
   window.localStorage.setItem(ENTITLEMENTS_KEY, JSON.stringify(next));
+  syncPremiumCookie(next.isPremium);
   window.dispatchEvent(new CustomEvent("viago:entitlements", { detail: next }));
 }
 

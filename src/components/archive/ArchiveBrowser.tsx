@@ -49,14 +49,13 @@ export function ArchiveBrowser() {
         <div>
           <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#059669]">
             <Crown className="size-3.5" />
-            프리미엄 아카이브 · Supabase DB
+            프리미엄 아카이브
           </p>
           <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-[#1E293B] md:text-3xl">
             선배 합격자 생기부 벤치마킹
           </h1>
           <p className="mt-2 text-sm text-ink-soft">
-            데이터베이스에 저장된 익명화 합격 사례 원문을 불러옵니다. 전문은 프리미엄 회원에게만
-            제공됩니다.
+            익명화 합격 사례를 검색·열람합니다. 전문은 프리미엄 회원에게만 제공됩니다.
           </p>
         </div>
         {!entitlements.isPremium && (
@@ -93,7 +92,7 @@ export function ArchiveBrowser() {
       {loading && (
         <p className="mt-8 inline-flex items-center gap-2 text-sm text-ink-soft">
           <Loader2 className="size-4 animate-spin" />
-          DB에서 사례를 불러오는 중…
+          사례를 불러오는 중…
         </p>
       )}
 
@@ -101,11 +100,7 @@ export function ArchiveBrowser() {
         <div className="mt-6 rounded-xl bg-coral/10 px-4 py-3 text-sm text-coral" role="alert">
           <p className="font-semibold">불러오기 실패</p>
           <p className="mt-1 whitespace-pre-wrap">{error}</p>
-          <p className="mt-2 text-xs text-ink-soft">
-            Supabase SQL 에디터에서{" "}
-            <code className="rounded bg-white/70 px-1">supabase/migrations/003_archive_cases.sql</code>{" "}
-            을 실행했는지 확인하세요.
-          </p>
+          <p className="mt-2 text-xs text-ink-soft">잠시 후 다시 시도해 주세요.</p>
         </div>
       )}
 
