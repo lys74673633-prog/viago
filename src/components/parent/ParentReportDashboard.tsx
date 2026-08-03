@@ -2,11 +2,22 @@
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
 import Link from "next/link";
-import { BookOpen, FileDown, Loader2, LineChart, Sparkles, Target, University } from "lucide-react";
+import {
+  BookOpen,
+  CircleHelp,
+  FileDown,
+  Loader2,
+  LineChart,
+  Sparkles,
+  Target,
+  University,
+} from "lucide-react";
 import { ExportButtons } from "@/components/export/ExportButtons";
 import { GradeGapChart } from "@/components/parent/GradeGapChart";
+import { GradeScaleGuide } from "@/components/parent/GradeScaleGuide";
 import { useBilling } from "@/contexts/BillingContext";
 import type { ExportDocumentInput } from "@/lib/export/document";
+import type { GradeScale } from "@/lib/parent/grade-scale";
 import {
   buildParentReport,
   type ParentReportResult,
@@ -21,6 +32,8 @@ export function ParentReportDashboard() {
 
   const [studentName, setStudentName] = useState("");
   const [grade, setGrade] = useState("고2");
+  const [gradeScale, setGradeScale] = useState<GradeScale>("5");
+  const [guideOpen, setGuideOpen] = useState<GradeScale | null>(null);
   const [mockScore, setMockScore] = useState("");
   const [targetUniv, setTargetUniv] = useState("");
   const [targetMajor, setTargetMajor] = useState("");
@@ -31,12 +44,13 @@ export function ParentReportDashboard() {
     if (!report) return null;
     return {
       title: `${studentName || "학생"} 대입 가능성 리포트`,
-      subtitle: `${grade} · 목표 ${targetUniv || "미정"} ${targetMajor} · Viago 학부모 진단`,
+      subtitle: `${grade} · ${report.gradeGap.scaleLabel} · 목표 ${targetUniv || "미정"} ${targetMajor} · Viago 학부모 진단`,
       sections: [
         { heading: "한눈에 보는 요약", body: report.summary },
         {
           heading: "등급 갭 진단",
           body: [
+            `체계: ${report.gradeGap.scaleLabel}`,
             `현재 ${report.gradeGap.currentGrade} / 목표 추정 ${report.gradeGap.targetGradeNeeded}`,
             `필요 상승 ${report.gradeGap.gap} · 현실 추정 ${report.gradeGap.feasibleGap}`,
             `판단: ${report.gradeGap.feasibility}`,
@@ -99,6 +113,7 @@ export function ParentReportDashboard() {
           studentName,
           grade,
           mockScore: Number(mockScore) || 0,
+          gradeScale,
           targetUniv,
           targetMajor,
           recordNotes,
@@ -149,16 +164,52 @@ export function ParentReportDashboard() {
               <option>고3</option>
             </select>
           </Field>
-          <Field label="최근 모의고사 평균 등급">
-            <input
-              value={mockScore}
-              onChange={(e) => setMockScore(e.target.value)}
-              className={inputClass}
-              placeholder="예: 2.4"
-              required
-              inputMode="decimal"
-            />
-          </Field>
+          <div className="space-y-2 sm:col-span-2">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-sm font-semibold text-ink">최근 모의고사 평균 등급</span>
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGuideOpen("5")}
+                  className="inline-flex items-center gap-1 rounded-lg border border-[#10B981]/30 bg-[#ecfdf5] px-2.5 py-1.5 text-[11px] font-semibold text-[#065f46] hover:bg-[#d1fae5]"
+                >
+                  <CircleHelp className="size-3.5" />
+                  5등급제 기준 자료 안내
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setGuideOpen("9")}
+                  className="inline-flex items-center gap-1 rounded-lg border border-ink/12 bg-white px-2.5 py-1.5 text-[11px] font-semibold text-ink hover:bg-fog"
+                >
+                  <CircleHelp className="size-3.5" />
+                  9등급제 기준 자료 안내
+                </button>
+              </div>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-[minmax(0,140px)_1fr]">
+              <select
+                value={gradeScale}
+                onChange={(e) => setGradeScale(e.target.value as GradeScale)}
+                className={inputClass}
+                aria-label="등급 체계"
+              >
+                <option value="5">5등급제 (2009년생~)</option>
+                <option value="9">9등급제 (기존)</option>
+              </select>
+              <input
+                value={mockScore}
+                onChange={(e) => setMockScore(e.target.value)}
+                className={inputClass}
+                placeholder={gradeScale === "5" ? "예: 2.0 (1~5)" : "예: 2.4 (1~9)"}
+                required
+                inputMode="decimal"
+              />
+            </div>
+            <p className="text-[11px] text-ink-soft">
+              2009년생부터는 5등급제 기준으로 입력하는 것을 권장합니다. 안내 버튼에서 환산표를 확인할
+              수 있어요.
+            </p>
+          </div>
           <Field label="목표 대학·전형">
             <input
               value={targetUniv}
@@ -296,6 +347,7 @@ export function ParentReportDashboard() {
         </section>
       )}
 
+      <GradeScaleGuide open={guideOpen} onClose={() => setGuideOpen(null)} />
     </>
   );
 }

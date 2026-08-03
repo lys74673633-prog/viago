@@ -1,4 +1,11 @@
 import { ARCHIVE_CASE_SEEDS } from "@/data/archive-cases";
+import {
+  clampToScale,
+  fromNineScale,
+  scaleMax,
+  toNineScale,
+  type GradeScale,
+} from "@/lib/parent/grade-scale";
 
 export type ReachOption = {
   university: string;
@@ -26,21 +33,24 @@ export type ActivityExample = {
 };
 
 export type GradeGapAnalysis = {
+  scale: GradeScale;
+  scaleLabel: string;
   currentGrade: number;
   targetGradeNeeded: number;
   gap: number;
-  /** 학기당 현실적 상승 폭(등급 숫자 감소) 추정 */
+  /** 학기당 현실적 상승 폭(등급 숫자 감소) 추정 — 선택 스케일 기준 */
   realisticPerSemester: number;
   semestersLeft: number;
   feasibleGap: number;
   feasibility: "적정" | "도전적이나 가능" | "과도한 기대 — 전략 조정 권장";
   feasibilityDetail: string;
-  /** 차트용: 현재→목표→현실 도달선 */
+  /** 차트용: 현재→목표→현실 도달선 (선택 스케일 숫자) */
   chart: {
     labels: string[];
     currentLine: number[];
     targetLine: number[];
     realisticLine: number[];
+    yMax: number;
   };
 };
 
@@ -61,24 +71,31 @@ export type ParentReportInput = {
   studentName: string;
   grade: string;
   mockScore: number;
+  gradeScale: GradeScale;
   targetUniv: string;
   targetMajor: string;
   recordNotes: string;
 };
 
-/** 목표 대학 문자열에서 대략 필요 등급(낮을수록 상위) 추정 — 참고용 */
-export function estimateTargetGradeNeeded(targetUniv: string, targetMajor: string): number {
+/** 목표 대학 필요 등급 — 9등급제 기준 추정 후 선택 스케일로 변환 */
+export function estimateTargetGradeNeeded(
+  targetUniv: string,
+  targetMajor: string,
+  scale: GradeScale = "9",
+): number {
   const text = `${targetUniv} ${targetMajor}`.toLowerCase();
   const hardMajor =
     /의|치의|한의|약학|컴공|컴퓨터|반도체|전기|전자|인공지능|ai|경영|경제/.test(text);
 
-  if (/서울대|서울대학교|snu/.test(text)) return hardMajor ? 1.2 : 1.5;
-  if (/연세대|고려대|연세|고려|yonsei|korea univ/.test(text)) return hardMajor ? 1.5 : 1.9;
-  if (/카이스트|kaist|포항공대|포스텍|postech|의대|의예/.test(text)) return 1.3;
-  if (/성균관|한양|서강|이화|중앙|경희|한국외대|서울시립|건국|동국|홍익/.test(text))
-    return hardMajor ? 2.2 : 2.6;
-  if (/부산대|경북대|전남대|충남대|전북대|인하|아주|건국|단국/.test(text)) return 3.2;
-  return 3.0;
+  let nine = 3.0;
+  if (/서울대|서울대학교|snu/.test(text)) nine = hardMajor ? 1.2 : 1.5;
+  else if (/연세대|고려대|연세|고려|yonsei|korea univ/.test(text)) nine = hardMajor ? 1.5 : 1.9;
+  else if (/카이스트|kaist|포항공대|포스텍|postech|의대|의예/.test(text)) nine = 1.3;
+  else if (/성균관|한양|서강|이화|중앙|경희|한국외대|서울시립|건국|동국|홍익/.test(text))
+    nine = hardMajor ? 2.2 : 2.6;
+  else if (/부산대|경북대|전남대|충남대|전북대|인하|아주|건국|단국/.test(text)) nine = 3.2;
+
+  return fromNineScale(nine, scale);
 }
 
 function semestersRemaining(gradeLabel: string): number {
@@ -92,26 +109,37 @@ export function analyzeGradeGap(
   targetUniv: string,
   targetMajor: string,
   gradeLabel: string,
+  scale: GradeScale = "9",
 ): GradeGapAnalysis {
-  const safeCurrent = Math.min(9, Math.max(1, currentGrade || 5));
-  const targetGradeNeeded = estimateTargetGradeNeeded(targetUniv, targetMajor);
+  const safeCurrent = clampToScale(currentGrade, scale);
+  const targetGradeNeeded = estimateTargetGradeNeeded(targetUniv, targetMajor, scale);
   const gap = Math.max(0, +(safeCurrent - targetGradeNeeded).toFixed(2));
   const semestersLeft = semestersRemaining(gradeLabel);
-  const realisticPerSemester = gradeLabel === "고3" ? 0.25 : 0.4;
+  // 5등급제는 등급 폭이 좁아 학기당 개선 폭도 작게 잡음
+  const realisticPerSemester =
+    scale === "5"
+      ? gradeLabel === "고3"
+        ? 0.15
+        : 0.25
+      : gradeLabel === "고3"
+        ? 0.25
+        : 0.4;
   const feasibleGap = +(realisticPerSemester * semestersLeft).toFixed(2);
+  const scaleLabel = scale === "5" ? "5등급제" : "9등급제";
+  const yMax = scaleMax(scale);
 
   let feasibility: GradeGapAnalysis["feasibility"];
   let feasibilityDetail: string;
 
   if (gap <= feasibleGap * 0.85) {
     feasibility = "적정";
-    feasibilityDetail = `남은 약 ${semestersLeft}학기 동안 학기당 ${realisticPerSemester}등급 내외 상승을 가정하면, 목표 수준까지 현실적인 구간입니다. 내신·모의 병행과 세특 심화가 핵심입니다.`;
+    feasibilityDetail = `[${scaleLabel}] 남은 약 ${semestersLeft}학기 동안 학기당 ${realisticPerSemester}등급 내외 상승을 가정하면, 목표 수준까지 현실적인 구간입니다. 내신·모의 병행과 세특 심화가 핵심입니다.`;
   } else if (gap <= feasibleGap * 1.35) {
     feasibility = "도전적이나 가능";
-    feasibilityDetail = `필요 상승폭(${gap})이 현실 추정(${feasibleGap})보다 다소 큽니다. 정시/교과/학종 중 강점 전형을 좁히고, 약점 과목 집중 보강이 필요합니다.`;
+    feasibilityDetail = `[${scaleLabel}] 필요 상승폭(${gap})이 현실 추정(${feasibleGap})보다 다소 큽니다. 정시/교과/학종 중 강점 전형을 좁히고, 약점 과목 집중 보강이 필요합니다.`;
   } else {
     feasibility = "과도한 기대 — 전략 조정 권장";
-    feasibilityDetail = `목표와의 등급 갭(${gap})이 남은 기간 현실 상승 폭을 크게 웃돕니다. 목표를 ‘도전’으로 유지하되, 적정·안정 지원군을 반드시 병행하세요.`;
+    feasibilityDetail = `[${scaleLabel}] 목표와의 등급 갭(${gap})이 남은 기간 현실 상승 폭을 크게 웃돕니다. 목표를 ‘도전’으로 유지하되, 적정·안정 지원군을 반드시 병행하세요.`;
   }
 
   const steps = Math.max(2, semestersLeft);
@@ -123,6 +151,8 @@ export function analyzeGradeGap(
   );
 
   return {
+    scale,
+    scaleLabel,
     currentGrade: safeCurrent,
     targetGradeNeeded,
     gap,
@@ -131,7 +161,7 @@ export function analyzeGradeGap(
     feasibleGap,
     feasibility,
     feasibilityDetail,
-    chart: { labels, currentLine, targetLine, realisticLine },
+    chart: { labels, currentLine, targetLine, realisticLine, yMax },
   };
 }
 
@@ -441,15 +471,23 @@ export function pickActivityExamples(
 }
 
 export function buildParentReport(input: ParentReportInput): ParentReportResult {
+  const scale = input.gradeScale ?? "9";
   const score = input.mockScore;
-  const gradeGap = analyzeGradeGap(score, input.targetUniv, input.targetMajor, input.grade);
-  const { reachable, stretch } = getReachableOptions(score);
+  const gradeGap = analyzeGradeGap(
+    score,
+    input.targetUniv,
+    input.targetMajor,
+    input.grade,
+    scale,
+  );
+  // 대학 밴드는 9등급 감각으로 매칭
+  const { reachable, stretch } = getReachableOptions(toNineScale(score, scale));
   const activities = buildActivityPlans(input.targetUniv, input.targetMajor, input.recordNotes);
   const examples = pickActivityExamples(input.targetMajor, input.targetUniv, 3);
 
-  const fitBand = `${gradeGap.feasibility} · 목표 추정 등급 ${gradeGap.targetGradeNeeded} (현재 ${gradeGap.currentGrade})`;
+  const fitBand = `${gradeGap.scaleLabel} · ${gradeGap.feasibility} · 목표 추정 ${gradeGap.targetGradeNeeded} (현재 ${gradeGap.currentGrade})`;
 
-  const summary = `${input.studentName || "학생"} 학생(${input.grade})의 최근 모의 평균 등급은 약 ${gradeGap.currentGrade}입니다. ‘${input.targetUniv || "목표 대학"} / ${input.targetMajor || "희망 학과"}’ 기준으로 추정 필요 등급은 약 ${gradeGap.targetGradeNeeded}이며, 갭은 ${gradeGap.gap}등급입니다. 판단: ${gradeGap.feasibility}. ${gradeGap.feasibilityDetail} 아래에서는 현재 등급대 지원 가능군, 목표 맞춤 활동 로드맵, 실제 선배 사례를 함께 제시합니다.`;
+  const summary = `${input.studentName || "학생"} 학생(${input.grade}, ${gradeGap.scaleLabel})의 최근 모의 평균 등급은 약 ${gradeGap.currentGrade}입니다. ‘${input.targetUniv || "목표 대학"} / ${input.targetMajor || "희망 학과"}’ 기준으로 추정 필요 등급은 약 ${gradeGap.targetGradeNeeded}이며, 갭은 ${gradeGap.gap}등급입니다. 판단: ${gradeGap.feasibility}. ${gradeGap.feasibilityDetail} 아래에서는 현재 등급대 지원 가능군, 목표 맞춤 활동 로드맵, 실제 선배 사례를 함께 제시합니다.`;
 
   const strengths = [
     input.recordNotes.trim()
