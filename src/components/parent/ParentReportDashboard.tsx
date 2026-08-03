@@ -1,105 +1,111 @@
 "use client";
 
 import { useMemo, useState, type FormEvent, type ReactNode } from "react";
-import { FileDown, Loader2, LineChart } from "lucide-react";
-import { PaywallModal } from "@/components/billing/PaywallModal";
+import Link from "next/link";
+import { BookOpen, FileDown, Loader2, LineChart, Sparkles, Target, University } from "lucide-react";
 import { ExportButtons } from "@/components/export/ExportButtons";
+import { GradeGapChart } from "@/components/parent/GradeGapChart";
 import { useBilling } from "@/contexts/BillingContext";
 import type { ExportDocumentInput } from "@/lib/export/document";
+import {
+  buildParentReport,
+  type ParentReportResult,
+} from "@/lib/parent/report-engine";
 
 const inputClass =
   "w-full rounded-xl border border-ink/12 bg-white px-3.5 py-3 text-sm outline-none transition focus:border-teal focus:ring-2 focus:ring-teal/20";
 
-interface ReportResult {
-  summary: string;
-  strengths: string[];
-  risks: string[];
-  nextActions: string[];
-  fitBand: string;
-}
-
 export function ParentReportDashboard() {
   const { canParentReport, spendParentReport, entitlements } = useBilling();
-  const [paywall, setPaywall] = useState(false);
   const [loading, setLoading] = useState(false);
 
   const [studentName, setStudentName] = useState("");
   const [grade, setGrade] = useState("고2");
   const [mockScore, setMockScore] = useState("");
   const [targetUniv, setTargetUniv] = useState("");
+  const [targetMajor, setTargetMajor] = useState("");
   const [recordNotes, setRecordNotes] = useState("");
-  const [report, setReport] = useState<ReportResult | null>(null);
+  const [report, setReport] = useState<ParentReportResult | null>(null);
 
   const exportDoc: ExportDocumentInput | null = useMemo(() => {
     if (!report) return null;
     return {
       title: `${studentName || "학생"} 대입 가능성 리포트`,
-      subtitle: `${grade} · 목표 ${targetUniv || "미정"} · Viago 학부모 진단`,
+      subtitle: `${grade} · 목표 ${targetUniv || "미정"} ${targetMajor} · Viago 학부모 진단`,
       sections: [
         { heading: "한눈에 보는 요약", body: report.summary },
+        {
+          heading: "등급 갭 진단",
+          body: [
+            `현재 ${report.gradeGap.currentGrade} / 목표 추정 ${report.gradeGap.targetGradeNeeded}`,
+            `필요 상승 ${report.gradeGap.gap} · 현실 추정 ${report.gradeGap.feasibleGap}`,
+            `판단: ${report.gradeGap.feasibility}`,
+            report.gradeGap.feasibilityDetail,
+          ].join("\n"),
+        },
+        {
+          heading: "현재 등급대 지원 가능(참고)",
+          body: report.reachable
+            .map((r) => `• [${r.fit}] ${r.university} ${r.major} — ${r.note}`)
+            .join("\n"),
+        },
+        {
+          heading: "도전 지원군",
+          body:
+            report.stretchTargets.length > 0
+              ? report.stretchTargets
+                  .map((r) => `• ${r.university} ${r.major} — ${r.note}`)
+                  .join("\n")
+              : "해당 구간 추가 도전군 없음(또는 이미 상위권)",
+        },
+        {
+          heading: "목표 맞춤 활동 로드맵",
+          body: report.activities
+            .map(
+              (a, i) =>
+                `${i + 1}. ${a.title}\n왜: ${a.why}\n단계:\n${a.steps.map((s) => `  - ${s}`).join("\n")}\n교과: ${a.subjects.join(", ")}\n증거: ${a.evidenceTip}`,
+            )
+            .join("\n\n"),
+        },
+        {
+          heading: "선배 활동 사례(익명)",
+          body: report.examples
+            .map(
+              (e) =>
+                `• ${e.university} ${e.major} — ${e.title}\n  ${e.preview}\n  배움: ${e.takeaway}`,
+            )
+            .join("\n\n"),
+        },
         { heading: "강점", body: report.strengths.map((s) => `• ${s}`).join("\n") },
         { heading: "보완 포인트", body: report.risks.map((s) => `• ${s}`).join("\n") },
         { heading: "이번 학기 액션", body: report.nextActions.map((s) => `• ${s}`).join("\n") },
         { heading: "종합 밴드", body: report.fitBand },
       ],
-      footerNote: "본 리포트는 참고용이며, 실제 입시 결과는 전형·경쟁률에 따라 달라질 수 있습니다.",
+      footerNote:
+        "본 리포트는 교육 참고용 추정이며, 실제 입시 결과는 전형·경쟁률·대학 평가에 따라 달라질 수 있습니다.",
     };
-  }, [report, studentName, grade, targetUniv]);
-
-  function buildReport(): ReportResult {
-    const score = Number(mockScore) || 0;
-    const band =
-      score >= 1 && score <= 2
-        ? "상위권 안정~도전 가능 구간"
-        : score <= 4
-          ? "적정·소신 병행 구간"
-          : "상향 지원 전 내신·세특 보강이 유리한 구간";
-
-    return {
-      summary: `${studentName || "학생"} 학생의 모의고사(추정 등급 ${mockScore || "-"})와 생기부 메모를 종합하면, ${targetUniv || "목표 대학"} 기준으로 ${band}로 보입니다. 교과 세특의 구체성과 활동의 연결고리를 강화하는 것이 핵심입니다.`,
-      strengths: [
-        recordNotes.trim()
-          ? "제공하신 생기부 메모에서 활동 키워드가 확인됩니다. 이를 과목별 역량 문장으로 확장할 여지가 큽니다."
-          : "기본 학업 데이터가 입력되어 진단 프레임을 구성할 수 있습니다.",
-        "학부모가 이해하기 쉬운 ‘강점-리스크-다음 행동’ 구조로 정리 가능합니다.",
-        grade === "고3"
-          ? "고3 시점에는 원서 전략과 세특 마감을 병렬로 관리하는 것이 중요합니다."
-          : "아직 생기부를 쌓을 시간이 있어, 탐구의 깊이를 키우기 좋은 시기입니다.",
-      ],
-      risks: [
-        !mockScore
-          ? "모의고사 등급 입력이 없어 정량 신호가 제한적입니다."
-          : "단일 모의고사만으로는 추세 파악이 부족할 수 있습니다.",
-        "세특 문장이 추상적이면 합격 사례 대비 차별화가 약해질 수 있습니다.",
-        "목표 대학 전형(학종/교과/정시) 미구분 시 우선순위가 흐려질 수 있습니다.",
-      ],
-      nextActions: [
-        "이번 달: 과목별 세특 키워드 3개씩 정리 (Viago 세특 생성기 활용)",
-        "수행평가 1건을 보고서+발표 대본까지 완성해 포트폴리오화",
-        "합격생 아카이브에서 동일 계열 2~3사례 벤치마킹 후 활동 공백 메우기",
-      ],
-      fitBand: band,
-    };
-  }
+  }, [report, studentName, grade, targetUniv, targetMajor]);
 
   function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    if (!canParentReport) {
-      setPaywall(true);
-      return;
-    }
-
+    // MVP: 진단 리포트 콘텐츠 체험은 열어 두고, 프리미엄/횟수가 있으면 차감합니다.
     setLoading(true);
     window.setTimeout(() => {
-      const ok = spendParentReport();
-      if (!ok) {
-        setPaywall(true);
-        setLoading(false);
-        return;
+      if (canParentReport) {
+        spendParentReport();
       }
-      setReport(buildReport());
+      setReport(
+        buildParentReport({
+          studentName,
+          grade,
+          mockScore: Number(mockScore) || 0,
+          targetUniv,
+          targetMajor,
+          recordNotes,
+        }),
+      );
       setLoading(false);
-    }, 700);
+    }, 650);
   }
 
   return (
@@ -113,8 +119,8 @@ export function ParentReportDashboard() {
           입시 진단 리포트
         </h1>
         <p className="mt-2 text-sm text-ink-soft">
-          모의고사와 생기부 메모를 넣으면, 학부모가 읽기 쉬운 요약 리포트를 만들어 PDF로 받을 수
-          있어요.
+          등급 갭 그래프, 현재 지원 가능 대학·학과, 목표 맞춤 활동, 선배 사례까지 한 번에
+          정리합니다.
         </p>
       </div>
 
@@ -150,6 +156,7 @@ export function ParentReportDashboard() {
               className={inputClass}
               placeholder="예: 2.4"
               required
+              inputMode="decimal"
             />
           </Field>
           <Field label="목표 대학·전형">
@@ -157,7 +164,16 @@ export function ParentReportDashboard() {
               value={targetUniv}
               onChange={(e) => setTargetUniv(e.target.value)}
               className={inputClass}
-              placeholder="예: 서울대 학종 / 연세대 교과"
+              placeholder="예: 연세대 학종"
+              required
+            />
+          </Field>
+          <Field label="희망 학과·계열">
+            <input
+              value={targetMajor}
+              onChange={(e) => setTargetMajor(e.target.value)}
+              className={inputClass}
+              placeholder="예: 컴퓨터공학 / 경영 / 생명공학"
               required
             />
           </Field>
@@ -188,17 +204,90 @@ export function ParentReportDashboard() {
       </form>
 
       {report && (
-        <section className="mt-8 space-y-4">
+        <section className="mt-8 space-y-5">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-lg font-semibold text-ink">리포트 미리보기</h2>
             <ExportButtons document={exportDoc} />
           </div>
 
-          <article className="rounded-2xl bg-white/80 p-5 ring-1 ring-line md:p-6">
-            <p className="text-sm font-semibold text-[#059669]">{report.fitBand}</p>
-            <p className="mt-3 text-sm leading-relaxed text-ink">{report.summary}</p>
+          <article className="space-y-5 rounded-2xl bg-white/80 p-5 ring-1 ring-line md:p-6">
+            <div>
+              <p className="text-sm font-semibold text-[#059669]">{report.fitBand}</p>
+              <p className="mt-3 text-sm leading-relaxed text-ink">{report.summary}</p>
+            </div>
 
-            <div className="mt-6 grid gap-4 md:grid-cols-3">
+            <GradeGapChart analysis={report.gradeGap} />
+
+            <div className="grid gap-4 lg:grid-cols-2">
+              <UnivBlock
+                icon={<University className="size-4" />}
+                title="현재 등급대에서 갈 수 있는 대학·학과 (참고)"
+                items={report.reachable}
+              />
+              <UnivBlock
+                icon={<Target className="size-4" />}
+                title="도전으로 남겨둘 상위 지원군"
+                items={report.stretchTargets}
+                empty="추가 도전군이 없거나, 이미 상위권 구간에 있습니다."
+              />
+            </div>
+
+            <div>
+              <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <Sparkles className="size-4 text-[#059669]" />
+                목표 학교·학과를 위한 활동 로드맵
+              </h3>
+              <ul className="mt-3 space-y-4">
+                {report.activities.map((a) => (
+                  <li
+                    key={a.title}
+                    className="rounded-xl border border-ink/8 bg-fog/40 px-4 py-3"
+                  >
+                    <p className="font-semibold text-[#1E293B]">{a.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">{a.why}</p>
+                    <ol className="mt-2 list-decimal space-y-1 pl-4 text-sm text-ink">
+                      {a.steps.map((s) => (
+                        <li key={s}>{s}</li>
+                      ))}
+                    </ol>
+                    <p className="mt-2 text-[11px] text-teal-deep">
+                      연계 교과: {a.subjects.join(" · ")}
+                    </p>
+                    <p className="mt-1 text-[11px] text-ink-soft">증거 팁: {a.evidenceTip}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div>
+              <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+                <BookOpen className="size-4 text-[#059669]" />
+                다른 학생이 실제로 한 활동 예시
+              </h3>
+              <p className="mt-1 text-xs text-ink-soft">
+                Viago 익명 합격사례에서 추출한 벤치마킹 자료입니다.{" "}
+                <Link href="/archive" className="font-semibold underline">
+                  아카이브에서 더 보기
+                </Link>
+              </p>
+              <ul className="mt-3 space-y-3">
+                {report.examples.map((ex) => (
+                  <li key={ex.title} className="rounded-xl bg-white px-4 py-3 ring-1 ring-line">
+                    <p className="text-[11px] font-semibold text-teal-deep">
+                      {ex.university} · {ex.major} · {ex.sourceLabel}
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-[#1E293B]">{ex.title}</p>
+                    <p className="mt-1 text-xs leading-relaxed text-ink-soft">{ex.preview}</p>
+                    <p className="mt-2 text-[11px] text-ink">
+                      <span className="font-semibold">배울 점:</span> {ex.takeaway}
+                    </p>
+                    <p className="mt-1 text-[10px] text-slate-400">{ex.tags.join(" · ")}</p>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="grid gap-4 md:grid-cols-3">
               <ListBlock title="강점" items={report.strengths} />
               <ListBlock title="보완 포인트" items={report.risks} />
               <ListBlock title="다음 행동" items={report.nextActions} />
@@ -207,7 +296,6 @@ export function ParentReportDashboard() {
         </section>
       )}
 
-      <PaywallModal open={paywall} reason="parent_report" onClose={() => setPaywall(false)} />
     </>
   );
 }
@@ -230,6 +318,45 @@ function ListBlock({ title, items }: { title: string; items: string[] }) {
           <li key={item}>• {item}</li>
         ))}
       </ul>
+    </div>
+  );
+}
+
+function UnivBlock({
+  icon,
+  title,
+  items,
+  empty,
+}: {
+  icon: ReactNode;
+  title: string;
+  items: { university: string; major: string; fit: string; note: string }[];
+  empty?: string;
+}) {
+  return (
+    <div className="rounded-xl border border-ink/8 bg-fog/30 px-4 py-3">
+      <h3 className="inline-flex items-center gap-1.5 text-sm font-semibold text-ink">
+        {icon}
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="mt-2 text-xs text-ink-soft">{empty ?? "해당 항목 없음"}</p>
+      ) : (
+        <ul className="mt-3 space-y-2.5">
+          {items.map((r) => (
+            <li key={`${r.university}-${r.major}`}>
+              <p className="text-sm font-semibold text-[#1E293B]">
+                <span className="mr-1.5 rounded bg-ink/5 px-1.5 py-0.5 text-[10px] font-bold text-ink-soft">
+                  {r.fit}
+                </span>
+                {r.university}
+              </p>
+              <p className="text-xs text-teal-deep">{r.major}</p>
+              <p className="mt-0.5 text-[11px] leading-relaxed text-ink-soft">{r.note}</p>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

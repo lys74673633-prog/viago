@@ -16,7 +16,7 @@ export default function ParentReportPage() {
           aria-hidden
           className="pointer-events-none absolute inset-0 bg-[linear-gradient(160deg,#f8fafc_0%,#e8f4f8_45%,#eef8f4_100%)]"
         />
-        <div className="relative mx-auto max-w-3xl px-5 pb-16 pt-24 md:px-8 md:pb-20 md:pt-28">
+        <div className="relative mx-auto max-w-4xl px-5 pb-16 pt-24 md:px-8 md:pb-20 md:pt-28">
           <ParentReportDashboard />
         </div>
       </main>
