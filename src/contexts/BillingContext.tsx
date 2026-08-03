@@ -10,7 +10,6 @@ import {
   type ReactNode,
 } from "react";
 import {
-  applyProductPurchase,
   canCleanText,
   canExportDocument,
   canGenerateParentReport,
@@ -24,7 +23,7 @@ import {
   type Entitlements,
 } from "@/lib/billing/entitlements";
 import type { ProductId } from "@/lib/billing/products";
-import { buildCheckout, formatKrw } from "@/lib/payments/toss";
+import { formatKrw } from "@/lib/payments/toss";
 
 interface BillingContextValue {
   entitlements: Entitlements;
@@ -34,7 +33,7 @@ interface BillingContextValue {
   canArchive: boolean;
   canParentReport: boolean;
   refresh: () => void;
-  /** 토스 목업 결제 → 권한 부여 */
+  /** 체크아웃(토스 결제위젯)으로 이동 */
   purchase: (productId: ProductId) => Promise<{ ok: boolean; orderId?: string; error?: string }>;
   spendExport: () => boolean;
   spendClean: () => boolean;
@@ -72,33 +71,13 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     setEntitlements(next);
   }, []);
 
-  const purchase = useCallback(
-    async (productId: ProductId) => {
-      const checkout = buildCheckout(productId);
-      try {
-        const res = await fetch("/api/payments/mock", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(checkout),
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          return { ok: false, error: data.error ?? "결제에 실패했습니다." };
-        }
-
-        const next = applyProductPurchase(
-          readEntitlementsClient(),
-          productId,
-          data.orderId ?? checkout.orderId,
-        );
-        persist(next);
-        return { ok: true, orderId: data.orderId ?? checkout.orderId };
-      } catch {
-        return { ok: false, error: "결제 서버에 연결하지 못했습니다." };
-      }
-    },
-    [persist],
-  );
+  const purchase = useCallback(async (productId: ProductId) => {
+    if (typeof window === "undefined") {
+      return { ok: false, error: "브라우저에서만 결제할 수 있습니다." };
+    }
+    window.location.assign(`/checkout?productId=${encodeURIComponent(productId)}`);
+    return { ok: true };
+  }, []);
 
   const spendExport = useCallback(() => {
     const current = readEntitlementsClient();

@@ -35,6 +35,9 @@ export function Footer() {
           <Link href="/pricing" className="transition hover:text-[#0F172A]">
             요금제
           </Link>
+          <Link href="/commercial" className="transition hover:text-[#0F172A]">
+            상용화 가이드
+          </Link>
         </nav>
       </div>
     </footer>

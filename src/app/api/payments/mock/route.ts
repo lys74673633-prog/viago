@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { PRODUCTS, type ProductId } from "@/lib/billing/products";
+import { allowMockPayments } from "@/lib/payments/toss";
 
 interface MockBody {
   productId?: ProductId;
@@ -10,10 +11,19 @@ interface MockBody {
 }
 
 /**
- * 토스페이먼츠 목업 confirm.
- * 실제 환경에서는 paymentKey로 토스 승인 API를 호출한 뒤 entitlements를 DB에 반영합니다.
+ * 개발용 목업 승인. 토스 키가 있으면 /api/payments/confirm 을 사용하세요.
  */
 export async function POST(request: Request) {
+  if (!allowMockPayments()) {
+    return NextResponse.json(
+      {
+        error: "MOCK_DISABLED",
+        message: "목업 결제가 비활성화되어 있습니다. 토스 실결제를 사용하세요.",
+      },
+      { status: 403 },
+    );
+  }
+
   let body: MockBody;
   try {
     body = await request.json();

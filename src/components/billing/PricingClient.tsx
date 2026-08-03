@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { useBilling } from "@/contexts/BillingContext";
 import { PRODUCTS, type ProductId } from "@/lib/billing/products";
@@ -15,18 +15,20 @@ const ORDER: ProductId[] = [
 export function PricingClient() {
   const { purchase, formatKrw, entitlements } = useBilling();
   const [loading, setLoading] = useState<ProductId | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+  const [paymentMode, setPaymentMode] = useState<"unknown" | "toss" | "mock">("unknown");
+
+  useEffect(() => {
+    void fetch("/api/payments/config", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setPaymentMode(d.tossConfigured ? "toss" : "mock"))
+      .catch(() => setPaymentMode("mock"));
+  }, []);
 
   async function buy(id: ProductId) {
-    setMessage(null);
     setLoading(id);
-    const result = await purchase(id);
+    await purchase(id);
+    // 토스/체크아웃으로 이동하면 언마운트됨
     setLoading(null);
-    setMessage(
-      result.ok
-        ? `결제가 완료되었습니다. (주문 ${result.orderId})`
-        : result.error ?? "결제 실패",
-    );
   }
 
   return (
@@ -39,6 +41,18 @@ export function PricingClient() {
         {" · "}
         내보내기 {entitlements.exportCredits}회 · 클리닝 토큰 {entitlements.cleanTokens} ·
         학부모 리포트 {entitlements.parentReportCredits}회
+      </div>
+
+      <div className="rounded-2xl border border-[#10B981]/20 bg-[#ecfdf5] px-4 py-3 text-sm text-[#065f46]">
+        <p className="font-semibold">결제: 토스페이먼츠 (카드·토스페이·카카오페이)</p>
+        <p className="mt-1 text-xs leading-relaxed">
+          {paymentMode === "toss"
+            ? "토스 결제 키가 연결되어 있습니다. 결제하기를 누르면 실제 결제창이 열립니다."
+            : "아직 토스 키가 없어 개발용 목업만 가능합니다. 토스페이먼츠에서 키를 발급해 Vercel env에 넣으면 실결제창이 활성화됩니다."}
+          {" "}
+          실수익 정산은 사업자 등록 후 라이브 키·정산 계좌를 토스에 등록하면 그 계좌로
+          입금됩니다.
+        </p>
       </div>
 
       <ul className="grid gap-4 md:grid-cols-2">
@@ -69,18 +83,12 @@ export function PricingClient() {
                 className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-[#1E293B] px-4 py-3 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
               >
                 {busy ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />}
-                목업 결제하기
+                {paymentMode === "toss" ? "결제하기" : "결제하기 (키 없으면 목업)"}
               </button>
             </li>
           );
         })}
       </ul>
-
-      {message && (
-        <p className="rounded-xl bg-mint/50 px-4 py-3 text-sm text-teal-deep" role="status">
-          {message}
-        </p>
-      )}
     </div>
   );
 }
