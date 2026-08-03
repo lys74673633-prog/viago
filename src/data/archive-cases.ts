@@ -1,12 +1,22 @@
 import type { ArchiveCaseListItem } from "@/types/archive";
+import {
+  ACTIVITY_TEMPLATES,
+  MAJORS,
+  UNIVERSITIES,
+  matchMajors,
+  matchUniversity,
+  normalizeSearchToken,
+  trackForMajorName,
+  type MajorTrack,
+} from "@/data/archive-catalog";
 
 export type ArchiveCaseSeed = Omit<ArchiveCaseListItem, "fullText" | "performanceText" | "locked"> & {
   fullText: string;
   performanceText: string | null;
 };
 
-/** Supabase 없을 때 쓰는 익명·합성 합격 사례 시드 */
-export const ARCHIVE_CASE_SEEDS: ArchiveCaseSeed[] = [
+/** 손수 작성한 대표 사례 */
+const HANDCRAFTED: ArchiveCaseSeed[] = [
   {
     id: "seed-snu-cse-2024",
     slug: "snu-cse-2024-data-campaign",
@@ -58,96 +68,173 @@ export const ARCHIVE_CASE_SEEDS: ArchiveCaseSeed[] = [
 학생은 동일 카테고리 내 PB(자체브랜드)와 NB(제조사브랜드)의 가격 차이를 매장 관찰로 수집하고, 단위 가격·프로모션 여부를 표로 정리하였다. 교내 학생 42명을 대상으로 선택 요인을 묻는 간이 설문을 실시하고, 교차표를 통해 ‘가격 민감 집단’과 ‘브랜드 선호 집단’의 차이를 비교하였다. 수요의 가격탄력성 개념을 실제 선택 상황에 적용하려 시도하였고, 편의표본이라는 표집 한계와 설문 문항의 편향 가능성을 스스로 지적하였다. 일상 속 가격 전략을 경제 모형으로 설명하고, 해석의 신중함을 유지하며 사회과학적 탐구 태도를 보여 주었다.`,
     performanceText: null,
   },
-  {
-    id: "seed-kaist-phys-2022",
-    slug: "kaist-phys-2022-pendulum",
-    university: "KAIST",
-    major: "물리학과",
-    admissionYear: 2022,
-    subject: "물리학",
-    title: "스마트폰 가속도 센서를 활용한 단진자 주기 측정과 오차 분석",
-    preview:
-      "물리학 실험에서 스마트폰 센서로 단진자 주기를 측정하고 이론값과 비교하며 오차 요인을 정량적으로 분석하였다…",
-    tags: ["실험", "센서", "오차분석", "역학"],
-    fullText: `물리학 교과 세특
-학생은 단진자 주기 T≈2π√(L/g) 관계를 검증하기 위해 스마트폰 가속도 센서 앱으로 주기 데이터를 수집하였다. 실 길이 측정, 진폭을 작게 유지하는 조건, 10회 왕복 평균으로 주기를 산출하는 절차를 설계하였고, 이론값과의 상대오차를 계산하였다. 센서 노이즈, 공기저항, 실의 질량 무시 가정이 오차에 기여할 수 있음을 항목별로 검토하고, 진폭을 더 줄인 재실험으로 오차 감소를 확인하였다. 물리 개념을 일상 기기로 검증하며 실험 설계·오차 분석·개선 사이클을 완결성 있게 수행하였다.`,
-    performanceText: `실험 보고서 핵심
-측정: 길이별 주기, 반복 평균
-분석: 상대오차, 오차 원인 분해
-개선: 진폭 통제 재실험`,
-  },
-  {
-    id: "seed-postech-chem-2023",
-    slug: "postech-chem-2023-indicator",
-    university: "POSTECH",
-    major: "화학과",
-    admissionYear: 2023,
-    subject: "화학",
-    title: "천연 지시약의 pH 추정 한계와 정량적 보완 방안 탐구",
-    preview:
-      "적양배추 지시약으로 가정용 용액의 pH를 추정하고 시험지와 비교하며 정성 분석의 한계를 논의하였다…",
-    tags: ["산염기", "실험", "분석", "안전"],
-    fullText: `화학 교과 세특
-학생은 적양배추 추출액을 천연 지시약으로 사용하여 식초, 베이킹소다 용액, 세제 희석액의 색 변화를 관찰하고, 시판 pH 시험지 결과와 대조하였다. 색 판정의 주관성, 농도·조명에 따른 오인 가능성을 한계로 정리하고, 분광 앱 또는 비색 차트 표준화 등 정량적 보완 방법을 제안하였다. 실험 안전(눈·피부 보호, 폐기) 수칙을 준수하며 산·염기 평형 개념을 일상 물질에 적용하는 탐구를 완수하였다.`,
-    performanceText: null,
-  },
-  {
-    id: "seed-sogang-soc-2024",
-    slug: "sogang-soc-2024-club-belonging",
-    university: "서강대학교",
-    major: "사회학과",
-    admissionYear: 2024,
-    subject: "사회·문화",
-    title: "교내 동아리 참여와 학교 소속감의 관계에 대한 설문·교차분석",
-    preview:
-      "동아리 참여 여부와 소속감 점수의 관계를 설문으로 조사하고, 표집 편향을 명시한 채 해석하였다…",
-    tags: ["설문", "공동체", "연구윤리", "사회학"],
-    fullText: `사회·문화 교과 세특
-학생은 ‘동아리 참여가 학교 소속감과 관련이 있는가’를 연구 질문으로 설정하고, 리커트 척도 문항을 포함한 설문을 설계·실시하였다. 교차표와 간단 비교를 통해 참여 집단의 평균 소속감 점수가 더 높은 경향을 확인하였으나, 인과로 단정하지 않고 선택 편향·응답 편향 가능성을 명시하였다. 또래 문화와 학교 공동체의 연결을 사례로 제시하며 사회학적 상상력과 연구 윤리(동의, 익명) 의식을 보여 주었다.`,
-    performanceText: null,
-  },
-  {
-    id: "seed-snu-chemeng-2024",
-    slug: "snu-chemeng-2024-battery",
-    university: "서울대학교",
-    major: "화학생물공학부",
-    admissionYear: 2024,
-    subject: "화학",
-    title: "리튬이온 배터리 열화 요인 문헌 조사와 안전 수칙 제안",
-    preview:
-      "배터리 열화·열폭주 관련 공개 자료를 정리하고, 학교·가정에서의 안전한 사용 수칙을 제안하는 탐구를 수행하였다…",
-    tags: ["에너지", "안전", "문헌조사", "공학"],
-    fullText: `화학 교과 세특
-학생은 리튬이온 배터리의 충전·방전과 열화 메커니즘(SEI 성장, 과충전, 온도)을 공공기관·교과서·리뷰 자료를 통해 구조화하였다. 단순 요약에 그치지 않고 ‘고온 방치·비정품 충전기’가 위험 요인으로 반복 언급된다는 점을 근거와 함께 정리하고, 교내 전자기기 사용을 위한 안전 체크리스트를 제작하여 동아리 발표에서 공유하였다. 화학 개념(산화환원, 에너지)과 공학적 안전 이슈를 연결하며 진로 탐색의 구체성을 높였다.`,
-    performanceText: `탐구 보고서 구조
-서론: 배터리 사고 이슈와 탐구 필요성
-본론: 열화 요인 정리, 근거 자료 비교
-결론: 생활 안전 수칙과 한계`,
-  },
-  {
-    id: "seed-yonsei-med-2023",
-    slug: "yonsei-med-2023-sleep",
-    university: "연세대학교",
-    major: "의예과",
-    admissionYear: 2023,
-    subject: "생명과학",
-    title: "고등학생 수면 시간과 주간 집중도의 자기보고 상관 탐색",
-    preview:
-      "2주간 수면 일지를 작성하고 집중도 자기평가와 비교하여 생활습관–학습 상태의 관계가 있음을 탐구하였다…",
-    tags: ["수면", "건강", "자기탐구", "통계기초"],
-    fullText: `생명과학 교과 세특
-학생은 수면과 인지 기능의 관계를 주제로 2주간 취침·기상 시각과 주관적 집중도(1–5)를 기록하였다. 평균 수면 시간과 집중도 점수의 단순 비교를 통해 경향을 살펴보았고, 자기보고 자료의 주관성·교란변수(시험 기간, 카페인)를 한계로 명시하였다. 생체리듬·수면의 생물학적 의미를 교과서 개념과 연결하여 해석하였으며, 건강 관리가 학습 지속가능성에 미치는 영향을 근거 중심으로 서술하였다.`,
-    performanceText: null,
-  },
 ];
 
-export function searchArchiveSeeds(q: string) {
-  const needle = q.trim().toLowerCase();
-  if (!needle) return ARCHIVE_CASE_SEEDS;
-  return ARCHIVE_CASE_SEEDS.filter((item) => {
-    const hay = [item.title, item.university, item.major, item.subject, ...item.tags]
-      .join(" ")
-      .toLowerCase();
-    return hay.includes(needle);
+function templatesForTrack(track: MajorTrack | null) {
+  if (!track) return ACTIVITY_TEMPLATES;
+  const primary = ACTIVITY_TEMPLATES.filter((t) => t.track === track || t.track === "any");
+  const secondary = ACTIVITY_TEMPLATES.filter((t) => t.track !== track);
+  return [...primary, ...secondary];
+}
+
+function buildGeneratedSeeds(): ArchiveCaseSeed[] {
+  const out: ArchiveCaseSeed[] = [];
+
+  // 모든 대학 × 주요 전공에 템플릿을 붙여 검색 시 풍부한 관련 자료가 나오게 함
+  UNIVERSITIES.forEach((university, ui) => {
+    MAJORS.forEach((major, mi) => {
+      const templates = templatesForTrack(major.track).slice(0, 2);
+      templates.forEach((tpl, ti) => {
+        const year = 2022 + ((ui + mi + ti) % 3);
+        const slug = `${normalizeSearchToken(university).slice(0, 8)}-${normalizeSearchToken(major.name).slice(0, 8)}-${tpl.id}-${ti}`;
+        out.push({
+          id: `gen-${slug}`,
+          slug,
+          university,
+          major: major.name,
+          admissionYear: year,
+          subject: tpl.subject,
+          title: `${tpl.title} — ${major.name} 진로 연계`,
+          preview: `${university} ${major.name} 합격 사례(익명·합성). ${tpl.preview}`,
+          tags: [...tpl.tags, major.aliases[0] ?? major.name, university.replace("대학교", "")],
+          fullText: `${tpl.fullText}
+
+[진로 연계]
+학생은 위 탐구를 ‘${major.name}’ 전공 적합성의 근거로 연결하며, ${university} 지원 동기와 후속 학습 계획을 구체화하였다. 활동의 단순 나열이 아니라 전공에서 요구되는 문제 해결·분석·소통 역량으로 재해석하였다.`,
+          performanceText: tpl.performanceText
+            ? `${tpl.performanceText}\n전공 키워드: ${major.name}`
+            : `전공 연계 요약: ${major.name}에 필요한 탐구·분석 역량을 활동으로 증명`,
+        });
+      });
+    });
   });
+
+  return out;
+}
+
+const GENERATED = buildGeneratedSeeds();
+
+export const ARCHIVE_CASE_SEEDS: ArchiveCaseSeed[] = [...HANDCRAFTED, ...GENERATED];
+
+export type ArchiveSearchParams = {
+  q?: string;
+  university?: string;
+  major?: string;
+  limit?: number;
+};
+
+function scoreItem(
+  item: ArchiveCaseSeed,
+  university: string,
+  major: string,
+  q: string,
+): number {
+  let score = 0;
+  const uniN = normalizeSearchToken(university);
+  const majorN = normalizeSearchToken(major);
+  const qN = q.trim().toLowerCase();
+
+  const itemUni = normalizeSearchToken(item.university);
+  const itemMajor = normalizeSearchToken(item.major);
+  const hay = [item.title, item.university, item.major, item.subject, ...item.tags, item.preview]
+    .join(" ")
+    .toLowerCase();
+
+  const wantTrack = majorN ? trackForMajorName(major) : null;
+  const itemTrack = trackForMajorName(item.major);
+  const majors = majorN ? matchMajors(major) : [];
+  const uniMatched = Boolean(
+    uniN &&
+      (itemUni.includes(uniN) ||
+        uniN.includes(itemUni) ||
+        matchUniversity(university).some((u) => normalizeSearchToken(u) === itemUni)),
+  );
+  const majorExact =
+    Boolean(majorN) &&
+    (itemMajor.includes(majorN) ||
+      majorN.includes(itemMajor) ||
+      majors.some((m) => normalizeSearchToken(m.name) === itemMajor));
+  const sameTrack = Boolean(wantTrack && itemTrack && wantTrack === itemTrack);
+
+  // 학과/계열 일치가 최우선 → 그다음 학교
+  if (majorExact) score += 80;
+  else if (sameTrack) score += 55;
+  else if (majorN && majors.some((m) => m.aliases.some((a) => hay.includes(a.toLowerCase()))))
+    score += 28;
+
+  if (uniMatched) {
+    score += sameTrack || majorExact || !majorN ? 40 : 12;
+  } else if (uniN && hay.includes(uniN)) {
+    score += 8;
+  }
+
+  if (qN) {
+    for (const token of qN.split(/[\s,/]+/).filter((t) => t.length >= 2)) {
+      if (hay.includes(token)) score += 8;
+    }
+  }
+
+  if (item.id.startsWith("seed-")) score += 6;
+
+  // 학교만 넣고 학과가 없으면 해당 학교 사례 전부, 학과만 있으면 계열 전체
+  if (!majorN && !uniN && !qN) return 1;
+  return score;
+}
+
+/**
+ * 학교·학과·키워드로 관련 사례를 많이 반환 (관련 전공 트랙 포함)
+ */
+export function searchArchiveSeeds(params: ArchiveSearchParams | string = {}) {
+  const p: ArchiveSearchParams =
+    typeof params === "string" ? { q: params } : params ?? {};
+  const university = (p.university ?? "").trim();
+  const major = (p.major ?? "").trim();
+  const q = (p.q ?? "").trim();
+  const limit = p.limit ?? 60;
+
+  const hasFilter = Boolean(university || major || q);
+  if (!hasFilter) {
+    return ARCHIVE_CASE_SEEDS.slice(0, limit);
+  }
+
+  const scored = ARCHIVE_CASE_SEEDS.map((item) => ({
+    item,
+    score: scoreItem(item, university, major, q),
+  }))
+    .filter((x) => x.score > 0)
+    .sort((a, b) => b.score - a.score);
+
+  // 결과가 적으면 같은 트랙만이라도 더 채움
+  if (scored.length < 12 && major) {
+    const track = trackForMajorName(major);
+    if (track) {
+      const extras = ARCHIVE_CASE_SEEDS.filter(
+        (item) =>
+          trackForMajorName(item.major) === track &&
+          !scored.some((s) => s.item.id === item.id),
+      ).map((item) => ({ item, score: 10 }));
+      scored.push(...extras);
+    }
+  }
+
+  if (scored.length < 8 && university) {
+    const extras = ARCHIVE_CASE_SEEDS.filter(
+      (item) =>
+        normalizeSearchToken(item.university).includes(normalizeSearchToken(university).slice(0, 2)) &&
+        !scored.some((s) => s.item.id === item.id),
+    ).map((item) => ({ item, score: 8 }));
+    scored.push(...extras);
+  }
+
+  return scored
+    .sort((a, b) => b.score - a.score)
+    .slice(0, limit)
+    .map((x) => x.item);
+}
+
+export function archiveFacetSuggestions() {
+  return {
+    universities: [...UNIVERSITIES],
+    majors: MAJORS.map((m) => m.name),
+  };
 }
