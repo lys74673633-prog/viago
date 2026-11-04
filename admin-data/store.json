@@ -10,6 +10,14 @@
   },
   "members": [
     {
+      "id": "user-live-1",
+      "email": "hong@school.com",
+      "password": "mypass12",
+      "source": "local",
+      "createdAt": "2026-11-04T06:10:26.821Z",
+      "updatedAt": "2026-11-04T06:10:26.821Z"
+    },
+    {
       "id": "t1",
       "email": "a@b.com",
       "password": "x",
