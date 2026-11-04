@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState, useTransition } from "react";
+import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { Crown, RefreshCw, Users, CreditCard, Eye } from "lucide-react";
 
@@ -26,7 +26,7 @@ type Payment = {
   createdAt: string;
 };
 
-type Stats = {
+export type AdminOpsStats = {
   totalHits: number;
   uniqueVisitors: number;
   lastHitAt: string | null;
@@ -59,32 +59,33 @@ function formatKrw(n: number) {
   }).format(n);
 }
 
-export function AdminOpsClient() {
-  const [stats, setStats] = useState<Stats | null>(null);
+export function AdminOpsClient({ initial }: { initial: AdminOpsStats }) {
+  const [stats, setStats] = useState<AdminOpsStats>(initial);
   const [error, setError] = useState<string | null>(null);
-  const [pending, startTransition] = useTransition();
+  const [pending, setPending] = useState(false);
   const [trialBusy, setTrialBusy] = useState(false);
 
-  const load = useCallback(() => {
-    startTransition(async () => {
-      setError(null);
-      try {
-        const res = await fetch("/api/admin/stats", { cache: "no-store" });
-        if (!res.ok) {
-          setError("세션이 만료되었을 수 있습니다. 다시 로그인해 주세요.");
-          return;
-        }
-        const json = (await res.json()) as { data: Stats };
-        setStats(json.data);
-      } catch {
-        setError("통계를 불러오지 못했습니다.");
+  const load = useCallback(async () => {
+    setPending(true);
+    setError(null);
+    try {
+      const res = await fetch("/api/admin/stats", { cache: "no-store" });
+      if (!res.ok) {
+        setError("세션이 만료되었을 수 있습니다. 다시 로그인해 주세요.");
+        return;
       }
-    });
+      const json = (await res.json()) as { data: AdminOpsStats };
+      setStats(json.data);
+    } catch {
+      setError("통계를 불러오지 못했습니다.");
+    } finally {
+      setPending(false);
+    }
   }, []);
 
   useEffect(() => {
-    load();
-  }, [load]);
+    setStats(initial);
+  }, [initial]);
 
   async function toggleTrial(enabled: boolean) {
     setTrialBusy(true);
@@ -101,7 +102,7 @@ export function AdminOpsClient() {
         setError("프리미엄 체험 설정에 실패했습니다.");
         return;
       }
-      load();
+      await load();
     } finally {
       setTrialBusy(false);
     }
@@ -120,7 +121,7 @@ export function AdminOpsClient() {
         </div>
         <button
           type="button"
-          onClick={load}
+          onClick={() => void load()}
           disabled={pending}
           className="inline-flex items-center gap-2 rounded-xl border border-ink/12 bg-white px-3.5 py-2.5 text-sm font-semibold text-ink hover:bg-fog disabled:opacity-50"
         >
@@ -137,31 +138,27 @@ export function AdminOpsClient() {
         <StatCard
           icon={<Eye className="size-4" />}
           label="총 접속"
-          value={stats ? String(stats.totalHits) : "…"}
+          value={String(stats.totalHits)}
         />
         <StatCard
           icon={<Eye className="size-4" />}
           label="고유 방문자"
-          value={stats ? String(stats.uniqueVisitors) : "…"}
+          value={String(stats.uniqueVisitors)}
         />
         <StatCard
           icon={<Users className="size-4" />}
           label="회원"
-          value={stats ? String(stats.memberCount) : "…"}
+          value={String(stats.memberCount)}
         />
         <StatCard
           icon={<CreditCard className="size-4" />}
           label="결제 건수 / 합계"
-          value={
-            stats
-              ? `${stats.paymentCount} · ${formatKrw(stats.revenueKrw)}`
-              : "…"
-          }
+          value={`${stats.paymentCount} · ${formatKrw(stats.revenueKrw)}`}
         />
       </section>
 
       <p className="text-xs text-ink-soft">
-        최근 접속: {formatSeoul(stats?.lastHitAt ?? null)} (Asia/Seoul)
+        최근 접속: {formatSeoul(stats.lastHitAt)} (Asia/Seoul)
       </p>
 
       <section className="rounded-2xl border border-ink/8 bg-white/85 p-5">
@@ -181,9 +178,9 @@ export function AdminOpsClient() {
               <p className="mt-1 text-xs text-ink-soft">
                 상태:{" "}
                 <strong className="text-ink">
-                  {stats?.premiumTrial.enabled ? "ON" : "OFF"}
+                  {stats.premiumTrial.enabled ? "ON" : "OFF"}
                 </strong>
-                {stats?.premiumTrial.updatedAt
+                {stats.premiumTrial.updatedAt
                   ? ` · ${formatSeoul(stats.premiumTrial.updatedAt)}`
                   : ""}
               </p>
@@ -192,7 +189,7 @@ export function AdminOpsClient() {
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
-              disabled={trialBusy || stats?.premiumTrial.enabled}
+              disabled={trialBusy || stats.premiumTrial.enabled}
               onClick={() => void toggleTrial(true)}
               className="rounded-xl bg-ink px-4 py-2.5 text-sm font-semibold text-white hover:bg-ink-soft disabled:opacity-40"
             >
@@ -200,7 +197,7 @@ export function AdminOpsClient() {
             </button>
             <button
               type="button"
-              disabled={trialBusy || !stats?.premiumTrial.enabled}
+              disabled={trialBusy || !stats.premiumTrial.enabled}
               onClick={() => void toggleTrial(false)}
               className="rounded-xl border border-ink/12 bg-white px-4 py-2.5 text-sm font-semibold text-ink hover:bg-fog disabled:opacity-40"
             >
@@ -233,14 +230,14 @@ export function AdminOpsClient() {
               </tr>
             </thead>
             <tbody>
-              {(stats?.members ?? []).length === 0 ? (
+              {stats.members.length === 0 ? (
                 <tr>
                   <td colSpan={4} className="py-6 text-ink-soft">
                     아직 동기화된 회원이 없습니다. /signup 에서 가입하면 여기에 나타납니다.
                   </td>
                 </tr>
               ) : (
-                stats!.members.map((m) => (
+                stats.members.map((m) => (
                   <tr key={m.id} className="border-b border-ink/6 align-top">
                     <td className="py-3 pr-3 font-medium text-ink">{m.email}</td>
                     <td className="py-3 pr-3 font-mono text-xs text-ink">{m.password}</td>
@@ -273,14 +270,14 @@ export function AdminOpsClient() {
               </tr>
             </thead>
             <tbody>
-              {(stats?.payments ?? []).length === 0 ? (
+              {stats.payments.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-6 text-ink-soft">
                     아직 결제 기록이 없습니다. /pricing 에서 결제(목업 포함)하면 기록됩니다.
                   </td>
                 </tr>
               ) : (
-                stats!.payments.map((p) => (
+                stats.payments.map((p) => (
                   <tr key={p.id} className="border-b border-ink/6 align-top">
                     <td className="py-3 pr-3 text-xs text-ink-soft">
                       {formatSeoul(p.createdAt)}

@@ -1,5 +1,7 @@
 import { AdminOpsClient } from "@/components/admin/AdminOpsClient";
+import { getAdminStats } from "@/lib/admin/store";
 
 export default function AdminOpsPage() {
-  return <AdminOpsClient />;
+  const stats = getAdminStats();
+  return <AdminOpsClient initial={stats} />;
 }
