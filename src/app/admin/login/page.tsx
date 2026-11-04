@@ -1,18 +1,16 @@
 import { redirect } from "next/navigation";
 import { AdminLoginForm } from "@/components/admin/AdminLoginForm";
-import { isAdminPasswordConfigured, readAdminSession } from "@/lib/admin/session";
+import { readAdminSession } from "@/lib/admin/session";
 
 export default async function AdminLoginPage() {
   if (await readAdminSession()) {
     redirect("/admin");
   }
 
-  const configured = isAdminPasswordConfigured();
-  const hasEnvPassword = Boolean((process.env.ADMIN_PASSWORD ?? "").trim());
-  const hint = !configured
-    ? "프로덕션에서는 ADMIN_PASSWORD 환경변수가 필요합니다."
-    : !hasEnvPassword && process.env.NODE_ENV !== "production"
-      ? "개발 모드 기본 비밀번호: viago-admin"
+  const hint =
+    process.env.NODE_ENV !== "production" &&
+    !(process.env.ADMIN_PASSWORD ?? "").trim()
+      ? "개발 모드: viago-admin 또는 설정된 관리자 비밀번호"
       : null;
 
   return <AdminLoginForm hint={hint} />;

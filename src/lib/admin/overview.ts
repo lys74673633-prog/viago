@@ -128,9 +128,7 @@ export function buildAdminOverview(): AdminOverview {
       status: statusFrom(isAdminPasswordConfigured()),
       detail: (process.env.ADMIN_PASSWORD ?? "").trim()
         ? "ADMIN_PASSWORD env 사용"
-        : process.env.NODE_ENV !== "production"
-          ? "개발 기본값 viago-admin"
-          : "ADMIN_PASSWORD 미설정 — 로그인 불가",
+        : "기본 관리자 비밀번호 활성 (env 미설정)",
     },
   ];
 

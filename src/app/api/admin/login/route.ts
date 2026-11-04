@@ -3,18 +3,10 @@ import {
   ADMIN_COOKIE,
   adminCookieOptions,
   createAdminSessionToken,
-  isAdminPasswordConfigured,
   verifyAdminPassword,
 } from "@/lib/admin/session";
 
 export async function POST(request: Request) {
-  if (!isAdminPasswordConfigured()) {
-    return NextResponse.json(
-      { ok: false, error: "ADMIN_PASSWORD가 설정되지 않았습니다." },
-      { status: 503 },
-    );
-  }
-
   let password = "";
   try {
     const body = (await request.json()) as { password?: string };
@@ -28,10 +20,6 @@ export async function POST(request: Request) {
   }
 
   const token = createAdminSessionToken();
-  if (!token) {
-    return NextResponse.json({ ok: false, error: "세션을 만들 수 없습니다." }, { status: 503 });
-  }
-
   const res = NextResponse.json({ ok: true });
   res.cookies.set(ADMIN_COOKIE, token, adminCookieOptions());
   return res;
