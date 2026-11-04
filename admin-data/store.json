@@ -1,1 +1,26 @@
-{"visitors":{"totalHits":1,"uniqueKeys":["abc"],"lastHitAt":"2026-11-04T06:00:00.000Z"},"members":[{"id":"t1","email":"a@b.com","password":"x","source":"local","createdAt":"2026-11-04T06:00:00.000Z","updatedAt":"2026-11-04T06:00:00.000Z"}],"payments":[],"premiumTrial":{"enabled":false,"updatedAt":null,"note":null}}
+{
+  "visitors": {
+    "totalHits": 2,
+    "uniqueKeys": [
+      "abc",
+      "f711b3717cffddf797390ae9"
+    ],
+    "lastHitAt": "2026-11-04T06:09:46.208Z"
+  },
+  "members": [
+    {
+      "id": "t1",
+      "email": "a@b.com",
+      "password": "x",
+      "source": "local",
+      "createdAt": "2026-11-04T06:00:00.000Z",
+      "updatedAt": "2026-11-04T06:00:00.000Z"
+    }
+  ],
+  "payments": [],
+  "premiumTrial": {
+    "enabled": false,
+    "updatedAt": null,
+    "note": null
+  }
+}
