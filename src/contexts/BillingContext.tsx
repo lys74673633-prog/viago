@@ -10,6 +10,7 @@ import {
   type ReactNode,
 } from "react";
 import {
+  applyPremiumUnlockOverlay,
   canCleanText,
   canExportDocument,
   canGenerateParentReport,
@@ -22,12 +23,14 @@ import {
   writeEntitlementsClient,
   type Entitlements,
 } from "@/lib/billing/entitlements";
+import { syncPremiumCookie } from "@/lib/billing/premium-cookie";
 import type { ProductId } from "@/lib/billing/products";
 import { formatKrw } from "@/lib/payments/toss";
 
 interface BillingContextValue {
   entitlements: Entitlements;
   ready: boolean;
+  trialActive: boolean;
   canExport: boolean;
   canClean: boolean;
   canArchive: boolean;
@@ -44,15 +47,15 @@ interface BillingContextValue {
 const BillingContext = createContext<BillingContextValue | null>(null);
 
 export function BillingProvider({ children }: { children: ReactNode }) {
-  const [entitlements, setEntitlements] = useState<Entitlements>(DEFAULT_ENTITLEMENTS);
+  const [base, setBase] = useState<Entitlements>(DEFAULT_ENTITLEMENTS);
+  const [trialActive, setTrialActive] = useState(false);
   const [ready, setReady] = useState(false);
 
   const refresh = useCallback(() => {
-    setEntitlements(readEntitlementsClient());
+    setBase(readEntitlementsClient());
   }, []);
 
   useEffect(() => {
-    // DEV 강제해제가 꺼진 뒤에도 예전 프리미엄 쿠키가 남지 않도록 동기화
     refresh();
     setReady(true);
     const onStorage = (e: StorageEvent) => {
@@ -67,9 +70,38 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
+  useEffect(() => {
+    let cancelled = false;
+    async function loadTrial() {
+      try {
+        const res = await fetch("/api/billing/trial", { cache: "no-store" });
+        const data = (await res.json()) as { enabled?: boolean };
+        if (!cancelled) setTrialActive(Boolean(data.enabled));
+      } catch {
+        if (!cancelled) setTrialActive(false);
+      }
+    }
+    void loadTrial();
+    const id = window.setInterval(() => void loadTrial(), 30_000);
+    return () => {
+      cancelled = true;
+      window.clearInterval(id);
+    };
+  }, []);
+
+  const entitlements = useMemo(
+    () => (trialActive ? applyPremiumUnlockOverlay(base) : base),
+    [base, trialActive],
+  );
+
+  useEffect(() => {
+    // 미들웨어/쿠키 게이트와 맞춤 (체험 중에도 Premium 배지·아카이브 접근)
+    syncPremiumCookie(entitlements.isPremium);
+  }, [entitlements.isPremium]);
+
   const persist = useCallback((next: Entitlements) => {
     writeEntitlementsClient(next);
-    setEntitlements(next);
+    setBase(next);
   }, []);
 
   const purchase = useCallback(async (productId: ProductId) => {
@@ -81,30 +113,34 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const spendExport = useCallback(() => {
+    if (trialActive) return true;
     const current = readEntitlementsClient();
     if (!canExportDocument(current)) return false;
     persist(consumeExportCredit(current));
     return true;
-  }, [persist]);
+  }, [persist, trialActive]);
 
   const spendClean = useCallback(() => {
+    if (trialActive) return true;
     const current = readEntitlementsClient();
     if (!canCleanText(current)) return false;
     persist(consumeCleanToken(current));
     return true;
-  }, [persist]);
+  }, [persist, trialActive]);
 
   const spendParentReport = useCallback(() => {
+    if (trialActive) return true;
     const current = readEntitlementsClient();
     if (!canGenerateParentReport(current)) return false;
     persist(consumeParentReportCredit(current));
     return true;
-  }, [persist]);
+  }, [persist, trialActive]);
 
   const value = useMemo<BillingContextValue>(
     () => ({
       entitlements,
       ready,
+      trialActive,
       canExport: canExportDocument(entitlements),
       canClean: canCleanText(entitlements),
       canArchive: canViewArchiveFull(entitlements),
@@ -119,6 +155,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     [
       entitlements,
       ready,
+      trialActive,
       refresh,
       purchase,
       spendExport,

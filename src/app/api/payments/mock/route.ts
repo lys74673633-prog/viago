@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordPayment } from "@/lib/admin/store";
 import { PRODUCTS, type ProductId } from "@/lib/billing/products";
 import { allowMockPayments } from "@/lib/payments/toss";
 
@@ -44,11 +45,22 @@ export async function POST(request: Request) {
   // 목업: 즉시 승인
   await new Promise((r) => setTimeout(r, 400));
 
+  const orderId = body.orderId ?? `viago_mock_${Date.now()}`;
+  const provider = body.mode === "toss" ? "toss-mock" : "mock";
+  recordPayment({
+    orderId,
+    productId,
+    productName: product.name,
+    amount: product.priceKrw,
+    provider,
+    status: "DONE",
+  });
+
   return NextResponse.json({
     ok: true,
     status: "DONE",
-    provider: body.mode === "toss" ? "toss-mock" : "mock",
-    orderId: body.orderId ?? `viago_mock_${Date.now()}`,
+    provider,
+    orderId,
     productId,
     amount: product.priceKrw,
     orderName: product.name,

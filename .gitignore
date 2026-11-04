@@ -24,6 +24,9 @@
 .DS_Store
 *.pem
 
+# local admin registry (members/payments/visitors)
+.data/
+
 # debug
 npm-debug.log*
 yarn-debug.log*

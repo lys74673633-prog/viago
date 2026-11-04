@@ -15,6 +15,8 @@ import {
   formatKrw,
   readPendingOrder,
 } from "@/lib/payments/toss";
+import { syncPaymentToAdmin } from "@/lib/admin/sync-client";
+import { readLocalSession } from "@/lib/auth/local";
 
 function isProductId(v: string | null): v is ProductId {
   return Boolean(v && v in PRODUCTS);
@@ -49,6 +51,15 @@ export function PaymentSuccessClient() {
           orderId,
         );
         writeEntitlementsClient(next);
+        const local = readLocalSession();
+        await syncPaymentToAdmin({
+          orderId,
+          productId,
+          amount: PRODUCTS[productId].priceKrw,
+          email: local?.email ?? null,
+          userId: local?.id ?? null,
+          provider: "mock",
+        });
         clearPendingOrder();
         setState("ok");
         setMessage("결제가 반영되었습니다 (목업).");
@@ -92,6 +103,15 @@ export function PaymentSuccessClient() {
             String(data.orderId ?? orderId),
           );
           writeEntitlementsClient(next);
+          const local = readLocalSession();
+          await syncPaymentToAdmin({
+            orderId: String(data.orderId ?? orderId),
+            productId,
+            amount: Number(data.amount ?? amount),
+            email: local?.email ?? null,
+            userId: local?.id ?? null,
+            provider: "tosspayments",
+          });
         }
 
         clearPendingOrder();

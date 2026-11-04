@@ -12,8 +12,7 @@ export function isDevPremiumUnlocked(): boolean {
   return process.env.NEXT_PUBLIC_DEV_UNLOCK_PREMIUM === "true";
 }
 
-export function applyDevPremiumUnlock(e: Entitlements): Entitlements {
-  if (!isDevPremiumUnlocked()) return e;
+export function applyPremiumUnlockOverlay(e: Entitlements): Entitlements {
   const until = new Date();
   until.setFullYear(until.getFullYear() + 1);
   return {
@@ -24,6 +23,11 @@ export function applyDevPremiumUnlock(e: Entitlements): Entitlements {
     cleanTokens: Math.max(e.cleanTokens, 99),
     parentReportCredits: Math.max(e.parentReportCredits, 99),
   };
+}
+
+export function applyDevPremiumUnlock(e: Entitlements): Entitlements {
+  if (!isDevPremiumUnlocked()) return e;
+  return applyPremiumUnlockOverlay(e);
 }
 
 export interface Entitlements {
