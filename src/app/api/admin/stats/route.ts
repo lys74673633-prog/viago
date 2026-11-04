@@ -6,5 +6,5 @@ export async function GET() {
   if (!(await readAdminSession())) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, data: getAdminStats() });
+  return NextResponse.json({ ok: true, data: await getAdminStats() });
 }

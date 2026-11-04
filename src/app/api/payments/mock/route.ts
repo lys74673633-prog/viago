@@ -47,7 +47,7 @@ export async function POST(request: Request) {
 
   const orderId = body.orderId ?? `viago_mock_${Date.now()}`;
   const provider = body.mode === "toss" ? "toss-mock" : "mock";
-  recordPayment({
+  await recordPayment({
     orderId,
     productId,
     productName: product.name,

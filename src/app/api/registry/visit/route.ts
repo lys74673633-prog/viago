@@ -8,6 +8,17 @@ export async function POST(request: Request) {
   const raw = `${fwd}|${ua.slice(0, 120)}`;
   const uniqueKey = createHash("sha256").update(raw).digest("hex").slice(0, 24);
 
-  const stats = recordVisit(uniqueKey);
-  return NextResponse.json({ ok: true, ...stats });
+  try {
+    const stats = await recordVisit(uniqueKey);
+    return NextResponse.json({ ok: true, ...stats });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "VISIT_WRITE_FAILED",
+        message: err instanceof Error ? err.message : "저장 실패",
+      },
+      { status: 500 },
+    );
+  }
 }

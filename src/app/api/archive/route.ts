@@ -38,7 +38,7 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") ?? "").trim();
   const university = (searchParams.get("university") ?? "").trim();
   const major = (searchParams.get("major") ?? "").trim();
-  const trialOn = readAdminStore().premiumTrial.enabled;
+  const trialOn = (await readAdminStore()).premiumTrial.enabled;
   const isPremium =
     trialOn || readPremiumCookie(request.headers.get("cookie"));
 

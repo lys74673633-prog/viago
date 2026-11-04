@@ -56,7 +56,7 @@ function statusFrom(ok: boolean, warn = false): CheckStatus {
   return "missing";
 }
 
-export function buildAdminOverview(): AdminOverview {
+export async function buildAdminOverview(): Promise<AdminOverview> {
   const supabase = getSupabasePublicEnv();
   const service = getSupabaseServiceEnv();
   const tossConfigured = isTossConfigured();
@@ -67,7 +67,7 @@ export function buildAdminOverview(): AdminOverview {
     Boolean(process.env.NAVER_CLIENT_ID?.trim()) &&
     Boolean(process.env.NAVER_CLIENT_SECRET?.trim());
   const dailyFreeLimit = Number(process.env.DAILY_FREE_LIMIT ?? 5) || 5;
-  const live = getAdminStats();
+  const live = await getAdminStats();
 
   const checklist: AdminCheckItem[] = [
     {

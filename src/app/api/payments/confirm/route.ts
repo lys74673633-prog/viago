@@ -89,7 +89,7 @@ export async function POST(request: Request) {
     const confirmedOrderId = String(data.orderId ?? orderId);
     const confirmedAmount = Number(data.totalAmount ?? amount);
     if (productId && productId in PRODUCTS) {
-      recordPayment({
+      await recordPayment({
         orderId: confirmedOrderId,
         productId,
         productName: PRODUCTS[productId].name,

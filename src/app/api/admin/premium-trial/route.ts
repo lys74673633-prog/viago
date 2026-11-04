@@ -6,7 +6,8 @@ export async function GET() {
   if (!(await readAdminSession())) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, data: getAdminStats().premiumTrial });
+  const stats = await getAdminStats();
+  return NextResponse.json({ ok: true, data: stats.premiumTrial });
 }
 
 export async function POST(request: Request) {
@@ -24,6 +25,6 @@ export async function POST(request: Request) {
     // default enable
   }
 
-  const trial = setPremiumTrial(enabled, note);
+  const trial = await setPremiumTrial(enabled, note);
   return NextResponse.json({ ok: true, data: trial });
 }

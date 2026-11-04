@@ -32,8 +32,8 @@ const MANUAL = [
   },
 ] as const;
 
-export default function AdminChecklistPage() {
-  const overview = buildAdminOverview();
+export default async function AdminChecklistPage() {
+  const overview = await buildAdminOverview();
 
   return (
     <div className="space-y-6">

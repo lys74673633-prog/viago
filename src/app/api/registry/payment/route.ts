@@ -28,16 +28,27 @@ export async function POST(request: Request) {
   const amount =
     typeof body.amount === "number" ? body.amount : (product?.priceKrw ?? 0);
 
-  const row = recordPayment({
-    orderId,
-    productId,
-    productName: product?.name ?? productId,
-    amount,
-    email: body.email ?? null,
-    userId: body.userId ?? null,
-    provider: body.provider ?? "client",
-    status: body.status ?? "DONE",
-  });
+  try {
+    const row = await recordPayment({
+      orderId,
+      productId,
+      productName: product?.name ?? productId,
+      amount,
+      email: body.email ?? null,
+      userId: body.userId ?? null,
+      provider: body.provider ?? "client",
+      status: body.status ?? "DONE",
+    });
 
-  return NextResponse.json({ ok: true, payment: row });
+    return NextResponse.json({ ok: true, payment: row });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "PAYMENT_WRITE_FAILED",
+        message: err instanceof Error ? err.message : "저장 실패",
+      },
+      { status: 500 },
+    );
+  }
 }

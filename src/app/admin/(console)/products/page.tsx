@@ -9,8 +9,8 @@ function formatKrw(n: number) {
   }).format(n);
 }
 
-export default function AdminProductsPage() {
-  const overview = buildAdminOverview();
+export default async function AdminProductsPage() {
+  const overview = await buildAdminOverview();
 
   return (
     <div className="space-y-6">

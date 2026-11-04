@@ -3,7 +3,6 @@ import { upsertMember } from "@/lib/admin/store";
 
 /**
  * 로컬 회원가입/로그인 시 관리자 명단에 동기화.
- * (MVP: 운영자가 회원 아이디·비밀번호를 관리자 콘솔에서 확인)
  */
 export async function POST(request: Request) {
   let body: {
@@ -26,15 +25,26 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: "INVALID_CREDENTIALS" }, { status: 400 });
   }
 
-  const member = upsertMember({
-    id,
-    email,
-    password,
-    source: body.source ?? "local",
-  });
+  try {
+    const member = await upsertMember({
+      id,
+      email,
+      password,
+      source: body.source ?? "local",
+    });
 
-  return NextResponse.json({
-    ok: true,
-    member: { id: member.id, email: member.email, createdAt: member.createdAt },
-  });
+    return NextResponse.json({
+      ok: true,
+      member: { id: member.id, email: member.email, createdAt: member.createdAt },
+    });
+  } catch (err) {
+    return NextResponse.json(
+      {
+        ok: false,
+        error: "STORE_WRITE_FAILED",
+        message: err instanceof Error ? err.message : "저장 실패",
+      },
+      { status: 500 },
+    );
+  }
 }

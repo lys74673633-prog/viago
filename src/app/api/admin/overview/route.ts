@@ -7,5 +7,5 @@ export async function GET() {
   if (!ok) {
     return NextResponse.json({ ok: false, error: "UNAUTHORIZED" }, { status: 401 });
   }
-  return NextResponse.json({ ok: true, data: buildAdminOverview() });
+  return NextResponse.json({ ok: true, data: await buildAdminOverview() });
 }

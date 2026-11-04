@@ -3,7 +3,7 @@ import { readAdminStore } from "@/lib/admin/store";
 
 /** 공개: 관리자가 켠 전역 프리미엄 체험 상태 */
 export async function GET() {
-  const { premiumTrial } = readAdminStore();
+  const { premiumTrial } = await readAdminStore();
   return NextResponse.json({
     ok: true,
     enabled: premiumTrial.enabled,
