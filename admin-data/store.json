@@ -11,6 +11,14 @@
   },
   "members": [
     {
+      "id": "6f696e0b-937a-4ac9-8353-30615fe4346d",
+      "email": "leeyeseung3453@naver.com",
+      "password": "yeseung3453*",
+      "source": "local",
+      "createdAt": "2026-11-04T06:16:05.761Z",
+      "updatedAt": "2026-11-04T06:16:05.761Z"
+    },
+    {
       "id": "user-live-1",
       "email": "hong@school.com",
       "password": "mypass12",
