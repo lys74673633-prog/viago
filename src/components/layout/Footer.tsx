@@ -38,6 +38,9 @@ export function Footer() {
           <Link href="/commercial" className="transition hover:text-[#0F172A]">
             상용화 가이드
           </Link>
+          <Link href="/admin" className="transition hover:text-[#0F172A]">
+            관리자
+          </Link>
         </nav>
       </div>
     </footer>

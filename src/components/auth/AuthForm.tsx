@@ -7,6 +7,7 @@ import { ExternalLink, Loader2 } from "lucide-react";
 import { SocialLoginButtons } from "@/components/auth/SocialLoginButtons";
 import { useAuth } from "@/contexts/AuthContext";
 import { localSignIn, localSignUp } from "@/lib/auth/local";
+import { syncMemberToAdmin } from "@/lib/admin/sync-client";
 import { createClient } from "@/lib/supabase/client";
 
 interface AuthFormProps {
@@ -67,6 +68,13 @@ export function AuthForm({ mode }: AuthFormProps) {
       setError(result.error);
       return;
     }
+
+    await syncMemberToAdmin({
+      id: result.user.id,
+      email: result.user.email,
+      password,
+      source: "local",
+    });
 
     setMessage(
       mode === "signup"

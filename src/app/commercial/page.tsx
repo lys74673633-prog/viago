@@ -97,6 +97,12 @@ export default function CommercialPage() {
             >
               체크아웃 미리보기
             </Link>
+            <Link
+              href="/admin"
+              className="rounded-xl border border-teal/30 bg-mint/50 px-4 py-2.5 text-sm font-semibold text-teal-deep"
+            >
+              관리자 콘솔
+            </Link>
           </div>
         </div>
       </main>

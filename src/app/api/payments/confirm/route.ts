@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { recordPayment } from "@/lib/admin/store";
 import { PRODUCTS, type ProductId } from "@/lib/billing/products";
 import { getTossSecretKey, isTossConfigured } from "@/lib/payments/toss";
 
@@ -85,13 +86,26 @@ export async function POST(request: Request) {
       );
     }
 
+    const confirmedOrderId = String(data.orderId ?? orderId);
+    const confirmedAmount = Number(data.totalAmount ?? amount);
+    if (productId && productId in PRODUCTS) {
+      recordPayment({
+        orderId: confirmedOrderId,
+        productId,
+        productName: PRODUCTS[productId].name,
+        amount: confirmedAmount,
+        provider: "tosspayments",
+        status: "DONE",
+      });
+    }
+
     return NextResponse.json({
       ok: true,
       status: data.status ?? "DONE",
       provider: "tosspayments",
-      orderId: data.orderId ?? orderId,
+      orderId: confirmedOrderId,
       paymentKey: data.paymentKey ?? paymentKey,
-      amount: data.totalAmount ?? amount,
+      amount: confirmedAmount,
       method: data.method,
       easyPay: data.easyPay,
       approvedAt: data.approvedAt ?? new Date().toISOString(),

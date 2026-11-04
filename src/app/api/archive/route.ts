@@ -3,6 +3,7 @@ import {
   archiveFacetSuggestions,
   searchArchiveSeeds,
 } from "@/data/archive-cases";
+import { readAdminStore } from "@/lib/admin/store";
 import { readPremiumCookie } from "@/lib/billing/premium-cookie";
 import type { ArchiveCaseListItem } from "@/types/archive";
 
@@ -37,7 +38,9 @@ export async function GET(request: Request) {
   const q = (searchParams.get("q") ?? "").trim();
   const university = (searchParams.get("university") ?? "").trim();
   const major = (searchParams.get("major") ?? "").trim();
-  const isPremium = readPremiumCookie(request.headers.get("cookie"));
+  const trialOn = readAdminStore().premiumTrial.enabled;
+  const isPremium =
+    trialOn || readPremiumCookie(request.headers.get("cookie"));
 
   const items = mapSeedItems(university, major, q, isPremium);
   const facets = archiveFacetSuggestions();
